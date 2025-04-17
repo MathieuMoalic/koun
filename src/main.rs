@@ -1,21 +1,30 @@
 use axum::{
-    routing::{get, post},
-    http::StatusCode,
     Json, Router,
+    http::StatusCode,
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 
 #[tokio::main]
 async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
 
+    let db = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect("sqlite:./db.sqlite")
+        .await
+        .unwrap();
+
     // build our application with a route
     let app = Router::new()
+        .with_state(db)
         // `GET /` goes to `root`
         .route("/", get(root))
         // `POST /users` goes to `create_user`
-        .route("/users", post(create_user));
+        .route("/users", post(create_user))
+        .route("/susers", post(create_user));
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

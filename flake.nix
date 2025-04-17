@@ -14,12 +14,12 @@
   };
 
   outputs = {
-    self,
     flake-utils,
     rust-overlay,
     crane,
     advisory-db,
     nixpkgs,
+    ...
   }: let
     perSystemOutputs = flake-utils.lib.eachDefaultSystem (system: let
       pkgs = (import nixpkgs) {
@@ -27,54 +27,83 @@
         overlays = [(import rust-overlay)];
       };
       inherit (pkgs) lib callPackage;
-      rustToolchain = callPackage ./nix/toolchain.nix {};
+      # Rust toolchain with additional components (rust-src, rust-analyzer)
+      rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+        extensions = ["rust-src" "rust-analyzer"];
+      };
 
-      darwinFrameworks = with pkgs.darwin.apple_sdk.frameworks; [
-        Security
-        SystemConfiguration
-      ];
+      # Developer tools used in the devShell (Rust + sqlx CLI)
+      devTools = [rustToolchain pkgs.sqlx-cli];
 
-      devTools = [rustToolchain];
+      # Shared build dependencies, including platform-specific ones
+      dependencies = with pkgs; [];
 
-      dependencies = with pkgs;
-        [libiconv]
-        ++ lib.lists.optionals stdenv.isDarwin darwinFrameworks;
-
+      # Native build inputs like pkg-config + platform-specific deps
       nativeBuildInputs = with pkgs; [pkg-config] ++ dependencies;
 
+      # Environment variables used during build
       buildEnvVars = {
         NIX_LDFLAGS = ["-L" "${pkgs.libiconv}/lib"];
-        OPENSSL_NO_VENDOR = 1;
       };
 
-      buffrs = callPackage ./nix/buffrs.nix {
-        inherit
-          crane
-          advisory-db
-          buildEnvVars
-          nativeBuildInputs
-          rustToolchain
-          ;
+      # Builds the main Rust package using crane + extra configuration
+      koun = let
+        craneLib = crane.mkLib {
+          inherit rustToolchain pkgs;
+        };
 
-        buildInputs = [rustToolchain];
+        commonArgs = {
+          pname = "koun";
+          version = "0.1.0";
+          src = craneLib.cleanCargoSource ./.;
+          buildInputs = [rustToolchain] ++ nativeBuildInputs;
+          buildEnv = buildEnvVars;
+          cargoExtraArgs = "--locked";
+        };
+
+        cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
+        package = craneLib.buildPackage (commonArgs
+          // {
+            inherit cargoArtifacts;
+          });
+
+        checks = {
+          clippy = craneLib.cargoClippy (commonArgs // {inherit cargoArtifacts;});
+          test = craneLib.cargoNextest (commonArgs // {inherit cargoArtifacts;});
+          fmt = craneLib.cargoFmt commonArgs;
+          audit = craneLib.cargoAudit (commonArgs
+            // {
+              RUSTSEC_ADVISORY_DB = advisory-db;
+              pkgs = pkgs;
+            });
+        };
+      in {
+        inherit package checks;
       };
 
-      app = flake-utils.lib.mkApp {drv = buffrs.package;};
+      # Wraps the package in a flake-compatible CLI app
+      app = flake-utils.lib.mkApp {drv = koun.package;};
     in {
-      # NB: if this does not build and you need to modify the file,
-      #     please ensure you also make the corresponding changes in the devshell
-      packages.default = buffrs.package;
+      # The default build output (used in `nix build`)
+      packages.default = koun.package;
+
+      # The default app output (used in `nix run`)
       apps.default = app;
 
+      # Prebuilt dependencies to be cached using vendorDependencies
       lib.vendorDependencies =
-        pkgs.callPackage ./nix/cache.nix {buffrs = buffrs.package;};
+        pkgs.callPackage ./nix/cache.nix {koun = koun.package;};
 
+      # Dev shell with Rust, sqlx, and platform-specific libs
       devShells.default = pkgs.mkShell ({
           nativeBuildInputs = nativeBuildInputs ++ [pkgs.protobuf];
           buildInputs = devTools ++ dependencies;
+          DATABASE_URL = "sqlite:./db.sqlite";
         }
         // buildEnvVars);
 
+      # Simple shell command to format all .nix files
       formatter = with pkgs;
         writeShellApplication {
           name = "nixfmt-nix-files";
@@ -82,6 +111,7 @@
           text = "fd \\.nix\\$ --hidden --type f | xargs nixfmt";
         };
 
+      # Check that all Nix files are properly formatted
       checks =
         {
           nix-files-are-formatted = pkgs.stdenvNoCC.mkDerivation {
@@ -100,15 +130,18 @@
             '';
           };
         }
-        // buffrs.checks;
+        // koun.checks;
 
-      overlays.default = _final: _prev: {buffrs = app;};
+      # Add the app as a top-level overlay (can be used by external flakes)
+      overlays.default = _final: _prev: {koun = app;};
     });
   in
+    # Final flake outputs
     perSystemOutputs
     // {
+      # Expose the built app through the flake overlay system
       overlays.default = final: _prev: {
-        buffrs = perSystemOutputs.packages.${final.stdenv.system}.default;
+        koun = perSystemOutputs.packages.${final.stdenv.system}.default;
       };
     };
 }
