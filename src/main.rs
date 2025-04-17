@@ -1,16 +1,20 @@
+#![deny(clippy::all)]
+#![deny(clippy::pedantic)]
+#![deny(clippy::nursery)]
+
 use axum::{
     Json, Router,
     http::StatusCode,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use sqlx::sqlite::SqlitePoolOptions;
 
 #[tokio::main]
 async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
-
+    println!("good");
     let db = SqlitePoolOptions::new()
         .max_connections(5)
         .connect("sqlite:./db.sqlite")
@@ -63,4 +67,28 @@ struct CreateUser {
 struct User {
     id: u64,
     username: String,
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{Json, http::StatusCode};
+
+    #[tokio::test]
+    async fn test_root_mock() {
+        let res = root().await;
+        assert_eq!(res, "Hello, World!");
+    }
+
+    #[tokio::test]
+    async fn test_create_user_mock() {
+        let input = CreateUser {
+            username: "tester".into(),
+        };
+
+        let (status, Json(user)) = create_user(Json(input)).await;
+
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(user.id, 1337);
+        assert_eq!(user.username, "tester");
+    }
 }

@@ -1,2 +1,5 @@
 /target
 .direnv
+/release
+*.sqlite
+
