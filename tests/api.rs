@@ -15,17 +15,7 @@ async fn setup_app() -> Router {
     // In-memory DB for testing
     let db = SqlitePoolOptions::new().connect(":memory:").await.unwrap();
 
-    sqlx::query(
-        r#"
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE
-        )
-        "#,
-    )
-    .execute(&db)
-    .await
-    .unwrap();
+    sqlx::migrate!().run(&db).await.unwrap();
 
     Router::new()
         .route("/", get(root))
