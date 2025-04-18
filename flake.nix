@@ -32,7 +32,7 @@
       };
 
       # pkg-config helps find external dependencies
-      nativeBuildInputs = with pkgs; [pkg-config];
+      nativeBuildInputs = with pkgs; [pkg-config rustls-libssl];
 
       koun = let
         craneLib = crane.mkLib {
@@ -74,7 +74,7 @@
 
       devShells.default = pkgs.mkShell {
         inherit nativeBuildInputs;
-        buildInputs = [rustToolchain pkgs.sqlx-cli];
+        buildInputs = [rustToolchain pkgs.sqlx-cli pkgs.bacon];
         DATABASE_URL = "sqlite:./db.sqlite";
       };
 
