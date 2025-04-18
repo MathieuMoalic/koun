@@ -1,5 +1,6 @@
--- Add migration script here
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    username TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    front TEXT NOT NULL,
+    back TEXT NOT NULL
 );
+

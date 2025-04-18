@@ -1,4 +1,7 @@
-use koun::app;
+mod routes;
+use crate::routes::cards;
+
+use axum::Router;
 use sqlx::sqlite::SqlitePoolOptions;
 use tokio::signal;
 
@@ -14,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
 
     sqlx::migrate!().run(&db).await?;
 
-    let app = app(db);
+    let app = Router::new().nest("/cards", cards::routes(db.clone()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     axum::serve(listener, app)
