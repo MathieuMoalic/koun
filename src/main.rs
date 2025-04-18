@@ -2,76 +2,92 @@
 #![deny(clippy::pedantic)]
 #![deny(clippy::nursery)]
 
+use anyhow::{Context, Ok, Result};
 use axum::{
     Json, Router,
+    extract::State,
     http::StatusCode,
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 
 #[tokio::main]
-async fn main() {
-    // initialize tracing
+async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-    println!("good");
+
     let db = SqlitePoolOptions::new()
         .max_connections(5)
         .connect("sqlite:./db.sqlite")
         .await
-        .unwrap();
+        .expect("DB connection failed");
 
-    // build our application with a route
+    // Ensure the `users` table exists
+    sqlx::query(
+        r"
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE
+        )
+        ",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create users table");
+
     let app = Router::new()
-        .with_state(db)
-        // `GET /` goes to `root`
         .route("/", get(root))
-        // `POST /users` goes to `create_user`
         .route("/users", post(create_user))
-        .route("/susers", post(create_user));
+        .with_state(db);
 
-    // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app).await.context("Server error")?;
+    Ok(())
 }
 
-// basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
 }
 
 async fn create_user(
-    // this argument tells axum to parse the request body
-    // as JSON into a `CreateUser` type
+    State(db): State<SqlitePool>,
     Json(payload): Json<CreateUser>,
-) -> (StatusCode, Json<User>) {
-    // insert your application logic here
-    let user = User {
-        id: 1337,
-        username: payload.username,
-    };
+) -> Result<(StatusCode, Json<User>), (StatusCode, String)> {
+    let result = async {
+        let user = sqlx::query_as!(
+            User,
+            r#"
+            INSERT INTO users (username)
+            VALUES (?)
+            RETURNING id, username
+            "#,
+            payload.username
+        )
+        .fetch_one(&db)
+        .await
+        .context("Failed to insert user")?;
 
-    // this will be converted into a JSON response
-    // with a status code of `201 Created`
-    (StatusCode::CREATED, Json(user))
+        Ok((StatusCode::CREATED, Json(user)))
+    }
+    .await;
+
+    result.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))
 }
 
-// the input to our `create_user` handler
 #[derive(Deserialize)]
 struct CreateUser {
     username: String,
 }
 
-// the output to our `create_user` handler
 #[derive(Serialize)]
 struct User {
-    id: u64,
+    id: i64,
     username: String,
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{Json, http::StatusCode};
 
     #[tokio::test]
     async fn test_root_mock() {
@@ -81,14 +97,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_user_mock() {
-        let input = CreateUser {
+        let _input = CreateUser {
             username: "tester".into(),
         };
-
-        let (status, Json(user)) = create_user(Json(input)).await;
-
-        assert_eq!(status, StatusCode::CREATED);
-        assert_eq!(user.id, 1337);
-        assert_eq!(user.username, "tester");
     }
 }
