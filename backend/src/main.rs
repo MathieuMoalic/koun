@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut config = cli.config;
 
-    let _log_guards = init_logging(&config);
+    let _log_guards = init_logging(&config, config.verbose);
 
     if config.jwt_secret.is_none() {
         use rand::Rng;
@@ -95,6 +95,7 @@ fn log_config(config: &koun::config::Config) {
     tracing::info!("Bind address: {}", config.bind);
     tracing::info!("Database path: {}", config.database_path);
     tracing::info!("Log file: {}", config.log_file.display());
+    tracing::info!("Verbosity: {}", config.verbose);
     tracing::info!(
         "CORS origin: {}",
         config.cors_origin.as_deref().unwrap_or("<allow all>")

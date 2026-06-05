@@ -28,6 +28,9 @@ pub struct Config {
     #[arg(long, env = "KOUN_LOG_FILE", default_value = "koun.log")]
     pub log_file: PathBuf,
 
+    #[arg(short, long, action = clap::ArgAction::Count, env = "KOUN_VERBOSE", default_value_t = 0)]
+    pub verbose: u8,
+
     #[arg(long, env = "KOUN_CORS_ORIGIN")]
     pub cors_origin: Option<String>,
 
