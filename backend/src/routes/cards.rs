@@ -3,7 +3,8 @@ use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::error::AppResult;
-use crate::models::{AppState, Card, now_ts};
+use crate::models::{AppState, Card, CardListItem, now_ts};
+use crate::scheduling::fsrs_retrievability;
 
 #[derive(Deserialize)]
 pub struct CreateCardReq {
@@ -20,12 +21,56 @@ pub struct UpdateCardReq {
     pub suspended: Option<bool>,
 }
 
-pub async fn list_cards(State(state): State<AppState>) -> AppResult<Json<Vec<Card>>> {
-    let cards = sqlx::query_as::<_, Card>(
-        "SELECT id, front, back, hint, suspended, created_at, updated_at FROM cards ORDER BY created_at DESC",
+pub async fn list_cards(State(state): State<AppState>) -> AppResult<Json<Vec<CardListItem>>> {
+    #[derive(sqlx::FromRow)]
+    struct CardListRow {
+        id: i64,
+        front: String,
+        back: String,
+        hint: Option<String>,
+        suspended: bool,
+        created_at: i64,
+        updated_at: i64,
+        fsrs_stability: f64,
+        fsrs_difficulty: f64,
+        fsrs_due_at: i64,
+        fsrs_last_review_at: i64,
+    }
+
+    let rows = sqlx::query_as::<_, CardListRow>(
+        "SELECT cards.id, cards.front, cards.back, cards.hint, cards.suspended, cards.created_at, cards.updated_at,
+                schedule_state.fsrs_stability, schedule_state.fsrs_difficulty,
+                schedule_state.fsrs_due_at, schedule_state.fsrs_last_review_at
+         FROM cards
+         JOIN schedule_state ON schedule_state.card_id = cards.id
+         ORDER BY cards.created_at DESC",
     )
     .fetch_all(&state.pool)
     .await?;
+
+    let now = now_ts();
+    let cards = rows
+        .into_iter()
+        .map(|row| CardListItem {
+            id: row.id,
+            front: row.front,
+            back: row.back,
+            hint: row.hint,
+            suspended: row.suspended,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            fsrs_stability: row.fsrs_stability,
+            fsrs_difficulty: row.fsrs_difficulty,
+            fsrs_due_at: row.fsrs_due_at,
+            fsrs_last_review_at: row.fsrs_last_review_at,
+            fsrs_retrievability: fsrs_retrievability(
+                row.fsrs_stability,
+                row.fsrs_last_review_at,
+                now,
+            ),
+        })
+        .collect();
+
     Ok(Json(cards))
 }
 
@@ -108,16 +153,12 @@ async fn insert_schedule_state(pool: &SqlitePool, card_id: i64, now: i64) -> App
     sqlx::query(
         "INSERT INTO schedule_state (
             card_id,
-            sm2_ease, sm2_interval_days, sm2_repetitions, sm2_due_at,
-            leitner_box, leitner_due_at,
             fsrs_stability, fsrs_difficulty, fsrs_due_at, fsrs_last_review_at,
-            updated_at
+            fsrs_learning_step, fsrs_relearning_step, updated_at
          )
-         VALUES (?, 2.5, 0, 0, ?, 1, ?, 1.0, 5.0, ?, 0, ?)",
+         VALUES (?, 1.0, 5.0, ?, 0, 0, 0, ?)",
     )
     .bind(card_id)
-    .bind(now)
-    .bind(now)
     .bind(now)
     .bind(now)
     .execute(pool)

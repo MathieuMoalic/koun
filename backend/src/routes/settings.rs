@@ -1,58 +1,156 @@
-use axum::{Json, extract::State};
+use axum::{Json, extract::State, http::StatusCode};
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::error::AppResult;
-use crate::models::{Algorithm, AlgorithmSetting, AppState};
+use crate::models::{AppState, FsrsSettings};
+use crate::scheduling::FsrsConfig;
 
-pub async fn get_algorithm(pool: &SqlitePool) -> AppResult<Algorithm> {
-    let value: Option<String> = sqlx::query_scalar(
-        "SELECT value FROM settings WHERE key = 'algorithm' LIMIT 1",
+#[derive(sqlx::FromRow)]
+struct FsrsSettingsRow {
+    desired_retention: f64,
+    learning_steps: String,
+    relearning_steps: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FsrsSettingsPayload {
+    desired_retention: f64,
+    learning_steps: Vec<String>,
+    relearning_steps: Vec<String>,
+}
+
+pub async fn get_fsrs_settings(
+    State(state): State<AppState>,
+) -> AppResult<Json<FsrsSettings>> {
+    let row = fetch_settings(&state.pool).await?;
+    Ok(Json(FsrsSettings {
+        desired_retention: row.desired_retention,
+        learning_steps: parse_steps_json(&row.learning_steps)?,
+        relearning_steps: parse_steps_json(&row.relearning_steps)?,
+    }))
+}
+
+pub async fn set_fsrs_settings(
+    State(state): State<AppState>,
+    Json(payload): Json<FsrsSettingsPayload>,
+) -> AppResult<Json<FsrsSettings>> {
+    validate_retention(payload.desired_retention)?;
+    validate_steps(&payload.learning_steps, "learning_steps")?;
+    validate_steps(&payload.relearning_steps, "relearning_steps")?;
+
+    let learning_json = serde_json::to_string(&payload.learning_steps)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let relearning_json = serde_json::to_string(&payload.relearning_steps)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    sqlx::query(
+        "INSERT INTO fsrs_settings (id, desired_retention, learning_steps, relearning_steps)
+         VALUES (1, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET desired_retention = excluded.desired_retention,
+             learning_steps = excluded.learning_steps,
+             relearning_steps = excluded.relearning_steps",
+    )
+    .bind(payload.desired_retention)
+    .bind(learning_json)
+    .bind(relearning_json)
+    .execute(&state.pool)
+    .await?;
+
+    Ok(Json(FsrsSettings {
+        desired_retention: payload.desired_retention,
+        learning_steps: payload.learning_steps,
+        relearning_steps: payload.relearning_steps,
+    }))
+}
+
+pub async fn get_fsrs_config(pool: &SqlitePool) -> AppResult<FsrsConfig> {
+    let row = fetch_settings(pool).await?;
+    let learning_steps = parse_steps_json(&row.learning_steps)?
+        .into_iter()
+        .map(|value| parse_step_duration(&value))
+        .collect::<Result<Vec<i64>, _>>()?;
+    let relearning_steps = parse_steps_json(&row.relearning_steps)?
+        .into_iter()
+        .map(|value| parse_step_duration(&value))
+        .collect::<Result<Vec<i64>, _>>()?;
+
+    validate_retention(row.desired_retention)?;
+    validate_step_seconds(&learning_steps, "learning_steps")?;
+    validate_step_seconds(&relearning_steps, "relearning_steps")?;
+
+    Ok(FsrsConfig {
+        desired_retention: row.desired_retention,
+        learning_steps,
+        relearning_steps,
+    })
+}
+
+async fn fetch_settings(pool: &SqlitePool) -> AppResult<FsrsSettingsRow> {
+    let row = sqlx::query_as::<_, FsrsSettingsRow>(
+        "SELECT desired_retention, learning_steps, relearning_steps
+         FROM fsrs_settings WHERE id = 1",
     )
     .fetch_optional(pool)
     .await?;
 
-    Ok(value
-        .as_deref()
-        .and_then(parse_algorithm)
-        .unwrap_or(Algorithm::Sm2))
+    row.ok_or(StatusCode::NOT_FOUND.into())
 }
 
-pub async fn get_algorithm_setting(
-    State(state): State<AppState>,
-) -> AppResult<Json<AlgorithmSetting>> {
-    let algorithm = get_algorithm(&state.pool).await?;
-    Ok(Json(AlgorithmSetting { algorithm }))
+fn parse_steps_json(value: &str) -> AppResult<Vec<String>> {
+    let steps = serde_json::from_str::<Vec<String>>(value)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    Ok(steps)
 }
 
-pub async fn set_algorithm_setting(
-    State(state): State<AppState>,
-    Json(setting): Json<AlgorithmSetting>,
-) -> AppResult<Json<AlgorithmSetting>> {
-    let value = algorithm_to_str(setting.algorithm);
-    sqlx::query(
-        "INSERT INTO settings (key, value)
-         VALUES ('algorithm', ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    )
-    .bind(value)
-    .execute(&state.pool)
-    .await?;
-    Ok(Json(setting))
-}
-
-fn parse_algorithm(value: &str) -> Option<Algorithm> {
-    match value {
-        "sm2" => Some(Algorithm::Sm2),
-        "fsrs" => Some(Algorithm::Fsrs),
-        "leitner" => Some(Algorithm::Leitner),
-        _ => None,
+fn validate_retention(retention: f64) -> AppResult<()> {
+    if !(0.7..=0.97).contains(&retention) {
+        return Err(StatusCode::BAD_REQUEST.into());
     }
+    Ok(())
 }
 
-fn algorithm_to_str(algorithm: Algorithm) -> &'static str {
-    match algorithm {
-        Algorithm::Sm2 => "sm2",
-        Algorithm::Fsrs => "fsrs",
-        Algorithm::Leitner => "leitner",
+fn validate_steps(steps: &[String], field: &str) -> AppResult<()> {
+    if steps.is_empty() {
+        return Err(StatusCode::BAD_REQUEST.into());
     }
+    for step in steps {
+        if parse_step_duration(step).is_err() {
+            tracing::warn!(field = %field, step = %step, "Invalid FSRS step");
+            return Err(StatusCode::BAD_REQUEST.into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_step_seconds(steps: &[i64], field: &str) -> AppResult<()> {
+    if steps.is_empty() {
+        return Err(StatusCode::BAD_REQUEST.into());
+    }
+    for step in steps {
+        if *step <= 0 {
+            tracing::warn!(field = %field, step = %step, "Invalid FSRS step seconds");
+            return Err(StatusCode::BAD_REQUEST.into());
+        }
+    }
+    Ok(())
+}
+
+fn parse_step_duration(value: &str) -> Result<i64, StatusCode> {
+    if value.len() < 2 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let (number, unit) = value.split_at(value.len() - 1);
+    let amount = number.parse::<i64>().map_err(|_| StatusCode::BAD_REQUEST)?;
+    if amount <= 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let seconds = match unit {
+        "s" => amount,
+        "m" => amount * 60,
+        "h" => amount * 60 * 60,
+        "d" => amount * 60 * 60 * 24,
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+    Ok(seconds)
 }

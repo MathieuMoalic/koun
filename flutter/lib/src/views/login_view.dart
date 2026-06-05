@@ -40,7 +40,7 @@ class _LoginViewState extends State<LoginView> {
         title: const Text('Server URL'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: 'http://10.0.2.2:8080'),
+            decoration: const InputDecoration(hintText: 'http://localhost:8080'),
         ),
         actions: [
           TextButton(

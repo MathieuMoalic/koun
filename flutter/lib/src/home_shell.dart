@@ -18,6 +18,11 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   bool? _loggedIn;
 
+  Future<void> _handleUnauthorized() async {
+    await _api.clearAuth();
+    setState(() => _loggedIn = false);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -40,9 +45,9 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     final tabs = [
-      LearnView(api: _api),
-      AddCardView(api: _api),
-      SettingsView(api: _api),
+      LearnView(api: _api, onUnauthorized: _handleUnauthorized),
+      AddCardView(api: _api, onUnauthorized: _handleUnauthorized),
+      SettingsView(api: _api, onUnauthorized: _handleUnauthorized),
     ];
 
     return Scaffold(

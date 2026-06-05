@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 
+class UnauthorizedException extends HttpException {
+  UnauthorizedException() : super('Unauthorized');
+}
 class ApiClient {
   static const _tokenKey = 'auth_token';
   static const _refreshTokenKey = 'refresh_token';
@@ -14,7 +17,7 @@ class ApiClient {
 
   Future<String> _baseUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_serverUrlKey) ?? 'http://10.0.2.2:8080';
+    return prefs.getString(_serverUrlKey) ?? 'http://localhost:8080';
   }
 
   Future<void> setServerUrl(String url) async {
@@ -22,6 +25,11 @@ class ApiClient {
     await prefs.setString(_serverUrlKey, url);
   }
 
+  Future<void> clearAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_refreshTokenKey);
+  }
   Future<String?> _token() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
@@ -90,6 +98,9 @@ class ApiClient {
 
   Future<NextReviewResponse> fetchNextReview() async {
     final response = await _authedGet('/reviews/next');
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
     if (response.statusCode != 200) {
       throw HttpException('Failed to fetch next review');
     }
@@ -108,34 +119,33 @@ class ApiClient {
       'back': back,
       'hint': hint,
     });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
     if (response.statusCode != 200) {
       throw HttpException('Failed to create card');
     }
   }
 
-  Future<Algorithm> getAlgorithm() async {
-    final response = await _authedGet('/settings/algorithm');
-    if (response.statusCode != 200) {
-      throw HttpException('Failed to fetch algorithm');
+  Future<List<CardModel>> listCards() async {
+    final response = await _authedGet('/cards');
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return Algorithm.values.firstWhere(
-      (value) => value.name == data['algorithm'],
-      orElse: () => Algorithm.sm2,
-    );
-  }
-
-  Future<void> setAlgorithm(Algorithm algorithm) async {
-    final response = await _authedPut('/settings/algorithm', {
-      'algorithm': algorithm.name,
-    });
     if (response.statusCode != 200) {
-      throw HttpException('Failed to update algorithm');
+      throw HttpException('Failed to fetch cards');
     }
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data
+        .map((item) => CardModel.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<ReviewsPerDay>> reviewsPerDay() async {
     final response = await _authedGet('/stats/reviews-per-day');
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
     if (response.statusCode != 200) {
       throw HttpException('Failed to fetch stats');
     }
@@ -143,6 +153,28 @@ class ApiClient {
     return data
         .map((item) => ReviewsPerDay.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<FsrsSettings> getFsrsSettings() async {
+    final response = await _authedGet('/settings/fsrs');
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw HttpException('Failed to fetch FSRS settings');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return FsrsSettings.fromJson(data);
+  }
+
+  Future<void> setFsrsSettings(FsrsSettings settings) async {
+    final response = await _authedPut('/settings/fsrs', settings.toJson());
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw HttpException('Failed to update FSRS settings');
+    }
   }
 
   Future<void> submitReview(ReviewEvent event) async {
@@ -174,6 +206,9 @@ class ApiClient {
     final response = await _authedPost('/reviews/sync', {
       'events': events.map((event) => event.toJson()).toList(),
     });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
     if (response.statusCode != 200) {
       throw HttpException('Failed to sync reviews');
     }

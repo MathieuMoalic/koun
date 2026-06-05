@@ -5,8 +5,9 @@ import '../models.dart';
 
 class LearnView extends StatefulWidget {
   final ApiClient api;
+  final Future<void> Function()? onUnauthorized;
 
-  const LearnView({super.key, required this.api});
+  const LearnView({super.key, required this.api, this.onUnauthorized});
 
   @override
   State<LearnView> createState() => _LearnViewState();
@@ -16,6 +17,7 @@ class _LearnViewState extends State<LearnView> {
   NextReviewResponse? _response;
   bool _loading = true;
   bool _showBack = false;
+  String? _error;
 
   @override
   void initState() {
@@ -25,13 +27,27 @@ class _LearnViewState extends State<LearnView> {
 
   Future<void> _loadNext() async {
     setState(() => _loading = true);
-    await widget.api.flushReviewQueue();
-    final response = await widget.api.fetchNextReview();
-    setState(() {
-      _response = response;
-      _showBack = false;
-      _loading = false;
-    });
+    try {
+      await widget.api.flushReviewQueue();
+      final response = await widget.api.fetchNextReview();
+      setState(() {
+        _response = response;
+        _showBack = false;
+        _error = null;
+        _loading = false;
+      });
+    } on UnauthorizedException {
+      setState(() {
+        _error = 'Session expired. Please log in again.';
+        _loading = false;
+      });
+      await widget.onUnauthorized?.call();
+    } catch (_) {
+      setState(() {
+        _error = 'Failed to load next review.';
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _submit(ReviewRating rating) async {
@@ -44,14 +60,25 @@ class _LearnViewState extends State<LearnView> {
       rating: rating,
       reviewedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
-    await widget.api.submitReview(event);
-    await _loadNext();
+    try {
+      await widget.api.submitReview(event);
+      await _loadNext();
+    } on UnauthorizedException {
+      setState(() => _error = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
+    } catch (_) {
+      setState(() => _error = 'Failed to submit review.');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(child: Text(_error!));
     }
 
     final next = _response?.next;

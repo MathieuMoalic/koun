@@ -1,13 +1,18 @@
 enum ReviewRating { again, hard, good, easy }
 
-enum Algorithm { sm2, fsrs, leitner }
-
 class CardModel {
   final int id;
   final String front;
   final String back;
   final String? hint;
   final bool suspended;
+  final int createdAt;
+  final int updatedAt;
+  final double fsrsStability;
+  final double fsrsDifficulty;
+  final double fsrsRetrievability;
+  final int fsrsDueAt;
+  final int fsrsLastReviewAt;
 
   CardModel({
     required this.id,
@@ -15,10 +20,50 @@ class CardModel {
     required this.back,
     required this.hint,
     required this.suspended,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.fsrsStability,
+    required this.fsrsDifficulty,
+    required this.fsrsRetrievability,
+    required this.fsrsDueAt,
+    required this.fsrsLastReviewAt,
   });
 
   factory CardModel.fromJson(Map<String, dynamic> json) {
     return CardModel(
+      id: json['id'] as int,
+      front: json['front'] as String,
+      back: json['back'] as String,
+      hint: json['hint'] as String?,
+      suspended: json['suspended'] as bool? ?? false,
+      createdAt: json['created_at'] as int,
+      updatedAt: json['updated_at'] as int,
+      fsrsStability: (json['fsrs_stability'] as num).toDouble(),
+      fsrsDifficulty: (json['fsrs_difficulty'] as num).toDouble(),
+      fsrsRetrievability: (json['fsrs_retrievability'] as num).toDouble(),
+      fsrsDueAt: json['fsrs_due_at'] as int,
+      fsrsLastReviewAt: json['fsrs_last_review_at'] as int,
+    );
+  }
+}
+
+class ReviewCard {
+  final int id;
+  final String front;
+  final String back;
+  final String? hint;
+  final bool suspended;
+
+  ReviewCard({
+    required this.id,
+    required this.front,
+    required this.back,
+    required this.hint,
+    required this.suspended,
+  });
+
+  factory ReviewCard.fromJson(Map<String, dynamic> json) {
+    return ReviewCard(
       id: json['id'] as int,
       front: json['front'] as String,
       back: json['back'] as String,
@@ -29,20 +74,15 @@ class CardModel {
 }
 
 class CardWithDue {
-  final CardModel card;
+  final ReviewCard card;
   final int dueAt;
-  final Algorithm algorithm;
 
-  CardWithDue({required this.card, required this.dueAt, required this.algorithm});
+  CardWithDue({required this.card, required this.dueAt});
 
   factory CardWithDue.fromJson(Map<String, dynamic> json) {
     return CardWithDue(
-      card: CardModel.fromJson(json['card'] as Map<String, dynamic>),
+      card: ReviewCard.fromJson(json['card'] as Map<String, dynamic>),
       dueAt: json['due_at'] as int,
-      algorithm: Algorithm.values.firstWhere(
-        (value) => value.name == json['algorithm'],
-        orElse: () => Algorithm.sm2,
-      ),
     );
   }
 }
@@ -94,4 +134,34 @@ class ReviewsPerDay {
       count: json['count'] as int,
     );
   }
+}
+
+class FsrsSettings {
+  final double desiredRetention;
+  final List<String> learningSteps;
+  final List<String> relearningSteps;
+
+  FsrsSettings({
+    required this.desiredRetention,
+    required this.learningSteps,
+    required this.relearningSteps,
+  });
+
+  factory FsrsSettings.fromJson(Map<String, dynamic> json) {
+    return FsrsSettings(
+      desiredRetention: (json['desired_retention'] as num).toDouble(),
+      learningSteps: (json['learning_steps'] as List<dynamic>)
+          .map((value) => value as String)
+          .toList(),
+      relearningSteps: (json['relearning_steps'] as List<dynamic>)
+          .map((value) => value as String)
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'desired_retention': desiredRetention,
+        'learning_steps': learningSteps,
+        'relearning_steps': relearningSteps,
+      };
 }

@@ -14,14 +14,6 @@ pub struct AppState {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
-pub enum Algorithm {
-    Sm2,
-    Fsrs,
-    Leitner,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
 pub enum ReviewRating {
     Again,
     Hard,
@@ -58,23 +50,41 @@ pub struct Card {
 pub struct CardWithDue {
     pub card: Card,
     pub due_at: i64,
-    pub algorithm: Algorithm,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct CardListItem {
+    pub id: i64,
+    pub front: String,
+    pub back: String,
+    pub hint: Option<String>,
+    pub suspended: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub fsrs_stability: f64,
+    pub fsrs_difficulty: f64,
+    pub fsrs_due_at: i64,
+    pub fsrs_last_review_at: i64,
+    pub fsrs_retrievability: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct ScheduleState {
     pub card_id: i64,
-    pub sm2_ease: f64,
-    pub sm2_interval_days: i64,
-    pub sm2_repetitions: i64,
-    pub sm2_due_at: i64,
-    pub leitner_box: i64,
-    pub leitner_due_at: i64,
     pub fsrs_stability: f64,
     pub fsrs_difficulty: f64,
     pub fsrs_due_at: i64,
     pub fsrs_last_review_at: i64,
+    pub fsrs_learning_step: i64,
+    pub fsrs_relearning_step: i64,
     pub updated_at: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FsrsSettings {
+    pub desired_retention: f64,
+    pub learning_steps: Vec<String>,
+    pub relearning_steps: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -92,11 +102,6 @@ pub struct ReviewSyncRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReviewSyncResponse {
     pub processed: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AlgorithmSetting {
-    pub algorithm: Algorithm,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

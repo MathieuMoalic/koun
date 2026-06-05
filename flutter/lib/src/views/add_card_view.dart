@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../models.dart';
 
 class AddCardView extends StatefulWidget {
   final ApiClient api;
+  final Future<void> Function()? onUnauthorized;
 
-  const AddCardView({super.key, required this.api});
+  const AddCardView({super.key, required this.api, this.onUnauthorized});
 
   @override
   State<AddCardView> createState() => _AddCardViewState();
@@ -15,8 +17,46 @@ class _AddCardViewState extends State<AddCardView> {
   final _frontController = TextEditingController();
   final _backController = TextEditingController();
   final _hintController = TextEditingController();
+  final _searchController = TextEditingController();
   bool _saving = false;
   String? _message;
+  String _query = '';
+  CardSort _sort = CardSort.dueDate;
+  bool _loadingCards = true;
+  List<CardModel> _cards = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCards();
+    _searchController.addListener(() {
+      setState(() => _query = _searchController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _frontController.dispose();
+    _backController.dispose();
+    _hintController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCards() async {
+    setState(() => _loadingCards = true);
+    try {
+      final cards = await widget.api.listCards();
+      setState(() => _cards = cards);
+    } on UnauthorizedException {
+      setState(() => _message = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
+    } catch (_) {
+      setState(() => _message = 'Failed to load cards');
+    } finally {
+      setState(() => _loadingCards = false);
+    }
+  }
 
   Future<void> _save() async {
     setState(() {
@@ -33,6 +73,10 @@ class _AddCardViewState extends State<AddCardView> {
       _backController.clear();
       _hintController.clear();
       setState(() => _message = 'Saved');
+      await _loadCards();
+    } on UnauthorizedException {
+      setState(() => _message = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
     } catch (err) {
       setState(() => _message = 'Failed to save');
     } finally {
@@ -40,20 +84,41 @@ class _AddCardViewState extends State<AddCardView> {
     }
   }
 
+  bool _fuzzyMatch(String query, String text) {
+    if (query.isEmpty) {
+      return true;
+    }
+    final q = query.toLowerCase();
+    final t = text.toLowerCase();
+    var qi = 0;
+    for (var i = 0; i < t.length && qi < q.length; i++) {
+      if (t[i] == q[qi]) {
+        qi += 1;
+      }
+    }
+    return qi == q.length;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filteredCards = _cards.where((card) {
+      final haystack = [card.front, card.back, card.hint ?? ''].join(' ');
+      return _fuzzyMatch(_query, haystack);
+    }).toList();
+    _sortCards(filteredCards);
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           TextField(
             controller: _frontController,
-            decoration: const InputDecoration(labelText: 'Front'),
+            decoration: const InputDecoration(labelText: 'Polish'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _backController,
-            decoration: const InputDecoration(labelText: 'Back'),
+            decoration: const InputDecoration(labelText: 'English'),
             maxLines: 3,
           ),
           const SizedBox(height: 12),
@@ -72,8 +137,205 @@ class _AddCardViewState extends State<AddCardView> {
             const SizedBox(height: 12),
             Text(_message!),
           ],
+          const SizedBox(height: 24),
+          TextField(
+            controller: _searchController,
+            decoration: const InputDecoration(
+              labelText: 'Search cards',
+              prefixIcon: Icon(Icons.search),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text('Sort by'),
+              const SizedBox(width: 12),
+              DropdownButton<CardSort>(
+                value: _sort,
+                items: const [
+                  DropdownMenuItem(
+                    value: CardSort.dueDate,
+                    child: Text('Due date'),
+                  ),
+                  DropdownMenuItem(
+                    value: CardSort.stability,
+                    child: Text('Stability'),
+                  ),
+                  DropdownMenuItem(
+                    value: CardSort.difficulty,
+                    child: Text('Difficulty'),
+                  ),
+                  DropdownMenuItem(
+                    value: CardSort.retrievability,
+                    child: Text('Retrievability'),
+                  ),
+                  DropdownMenuItem(
+                    value: CardSort.createdAt,
+                    child: Text('Created date'),
+                  ),
+                  DropdownMenuItem(
+                    value: CardSort.updatedAt,
+                    child: Text('Updated date'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _sort = value);
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _loadingCards
+                ? const Center(child: CircularProgressIndicator())
+                : filteredCards.isEmpty
+                    ? const Center(child: Text('No cards found'))
+                    : ListView.separated(
+                        itemCount: filteredCards.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final card = filteredCards[index];
+                          return Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    card.front,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(card.back),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 4,
+                                    children: [
+                                      _metricText(
+                                        context,
+                                        'D',
+                                        card.fsrsDifficulty.toStringAsFixed(2),
+                                      ),
+                                      _metricText(
+                                        context,
+                                        'S',
+                                        card.fsrsStability.toStringAsFixed(2),
+                                      ),
+                                      _metricText(
+                                        context,
+                                        'R',
+                                        (card.fsrsRetrievability * 100)
+                                            .toStringAsFixed(0),
+                                        suffix: '%',
+                                      ),
+                                      _metricText(
+                                        context,
+                                        'Due',
+                                        _formatRelative(card.fsrsDueAt),
+                                      ),
+                                    ],
+                                  ),
+                                  if (card.hint != null && card.hint!.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Hint: ${card.hint}',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
         ],
       ),
     );
   }
+
+  void _sortCards(List<CardModel> cards) {
+    switch (_sort) {
+      case CardSort.dueDate:
+        cards.sort((a, b) => a.fsrsDueAt.compareTo(b.fsrsDueAt));
+        break;
+      case CardSort.stability:
+        cards.sort((a, b) => b.fsrsStability.compareTo(a.fsrsStability));
+        break;
+      case CardSort.difficulty:
+        cards.sort((a, b) => b.fsrsDifficulty.compareTo(a.fsrsDifficulty));
+        break;
+      case CardSort.retrievability:
+        cards.sort((a, b) => b.fsrsRetrievability.compareTo(a.fsrsRetrievability));
+        break;
+      case CardSort.createdAt:
+        cards.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case CardSort.updatedAt:
+        cards.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        break;
+    }
+  }
+
+  String _formatRelative(int timestamp) {
+    if (timestamp == 0) {
+      return '-';
+    }
+    final now = DateTime.now();
+    final target = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    final diff = target.difference(now);
+    final past = diff.isNegative;
+    final seconds = diff.abs().inSeconds;
+
+    if (seconds < 60) {
+      return past ? 'just now' : 'in moments';
+    }
+
+    final minutes = seconds ~/ 60;
+    if (minutes < 60) {
+      return _formatUnit(minutes, 'minute', past);
+    }
+
+    final hours = minutes ~/ 60;
+    if (hours < 24) {
+      return _formatUnit(hours, 'hour', past);
+    }
+
+    final days = hours ~/ 24;
+    if (days < 30) {
+      return _formatUnit(days, 'day', past);
+    }
+
+    final months = days ~/ 30;
+    if (months < 12) {
+      return _formatUnit(months, 'month', past);
+    }
+
+    final years = days ~/ 365;
+    return _formatUnit(years, 'year', past);
+  }
+
+  String _formatUnit(int value, String unit, bool past) {
+    final label = value == 1 ? unit : '${unit}s';
+    return past ? '$value $label ago' : 'in $value $label';
+  }
+
+  Widget _metricText(BuildContext context, String label, String value,
+      {String suffix = ''}) {
+    final color = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7);
+    return Text('$label $value$suffix', style: TextStyle(color: color));
+  }
 }
+
+enum CardSort { dueDate, stability, difficulty, retrievability, createdAt, updatedAt }

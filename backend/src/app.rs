@@ -10,7 +10,7 @@ use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetReques
 use crate::auth_middleware::require_auth;
 use crate::config::Config;
 use crate::embedded_web::serve_embedded_web;
-use crate::logging::access_log;
+use crate::logging::{access_log, log_payloads};
 use crate::models::AppState;
 use crate::routes::{auth, cards, reviews, settings, stats};
 
@@ -59,7 +59,7 @@ pub fn build_app(state: AppState) -> Router {
         .route("/reviews/next", get(reviews::next_review))
         .route("/reviews/sync", post(reviews::sync_reviews))
         .route("/stats/reviews-per-day", get(stats::reviews_per_day))
-        .route("/settings/algorithm", get(settings::get_algorithm_setting).put(settings::set_algorithm_setting))
+        .route("/settings/fsrs", get(settings::get_fsrs_settings).put(settings::set_fsrs_settings))
         .route_layer(from_fn_with_state(state.clone(), require_auth));
 
     Router::new()
@@ -70,5 +70,6 @@ pub fn build_app(state: AppState) -> Router {
         .layer(DefaultBodyLimit::max(5 * 1024 * 1024))
         .layer(request_id_layer)
         .layer(from_fn(access_log))
+        .layer(from_fn(log_payloads))
         .layer(cors_layer(&state.config))
 }

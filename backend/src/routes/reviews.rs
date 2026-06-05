@@ -4,11 +4,11 @@ use sqlx::sqlite::SqliteQueryResult;
 
 use crate::error::AppResult;
 use crate::models::{
-    Algorithm, AppState, CardWithDue, ReviewSyncRequest, ReviewSyncResponse, ReviewRating,
-    ScheduleState, now_ts,
+    AppState, CardWithDue, ReviewSyncRequest, ReviewSyncResponse, ReviewRating, ScheduleState,
+    now_ts,
 };
-use crate::routes::settings::get_algorithm;
-use crate::scheduling::{apply_fsrs, apply_leitner, apply_sm2};
+use crate::routes::settings::get_fsrs_config;
+use crate::scheduling::apply_fsrs;
 
 #[derive(Serialize)]
 pub struct NextReviewResponse {
@@ -17,18 +17,12 @@ pub struct NextReviewResponse {
 }
 
 pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextReviewResponse>> {
-    let algorithm = get_algorithm(&state.pool).await?;
     let now = now_ts();
-    let due_column = match algorithm {
-        Algorithm::Sm2 => "sm2_due_at",
-        Algorithm::Fsrs => "fsrs_due_at",
-        Algorithm::Leitner => "leitner_due_at",
-    };
 
     let due_count: i64 = sqlx::query_scalar(&format!(
         "SELECT COUNT(*) FROM schedule_state
          JOIN cards ON cards.id = schedule_state.card_id
-         WHERE cards.suspended = 0 AND {due_column} <= ?",
+         WHERE cards.suspended = 0 AND fsrs_due_at <= ?",
     ))
     .bind(now)
     .fetch_one(&state.pool)
@@ -49,11 +43,11 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
     let next_card = sqlx::query_as::<_, CardDueRow>(
         &format!(
             "SELECT cards.id, cards.front, cards.back, cards.hint, cards.suspended, cards.created_at, cards.updated_at,
-                    schedule_state.{due_column} as due_at
+                    schedule_state.fsrs_due_at as due_at
              FROM cards
              JOIN schedule_state ON schedule_state.card_id = cards.id
-             WHERE cards.suspended = 0 AND {due_column} <= ?
-             ORDER BY {due_column} ASC
+             WHERE cards.suspended = 0 AND fsrs_due_at <= ?
+             ORDER BY fsrs_due_at ASC
              LIMIT 1",
         ),
     )
@@ -72,7 +66,6 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
             created_at: row.created_at,
             updated_at: row.updated_at,
         },
-        algorithm,
     });
 
     Ok(Json(NextReviewResponse { next, due_count }))
@@ -82,17 +75,17 @@ pub async fn sync_reviews(
     State(state): State<AppState>,
     Json(req): Json<ReviewSyncRequest>,
 ) -> AppResult<Json<ReviewSyncResponse>> {
-    let algorithm = get_algorithm(&state.pool).await?;
+    let fsrs_config = get_fsrs_config(&state.pool).await?;
     let mut tx = state.pool.begin().await?;
     let mut processed = 0;
 
     for event in req.events {
         let reviewed_at = event.reviewed_at.unwrap_or_else(now_ts);
         let mut schedule = fetch_schedule_state(&mut tx, event.card_id).await?;
-        apply_review(&mut schedule, algorithm, event.rating, reviewed_at);
+        apply_review(&mut schedule, event.rating, reviewed_at, &fsrs_config);
         update_schedule_state(&mut tx, &schedule).await?;
         update_card_timestamp(&mut tx, event.card_id, reviewed_at).await?;
-        insert_review(&mut tx, event.card_id, event.rating, algorithm, reviewed_at).await?;
+        insert_review(&mut tx, event.card_id, event.rating, reviewed_at).await?;
         processed += 1;
     }
 
@@ -103,21 +96,11 @@ pub async fn sync_reviews(
 
 fn apply_review(
     schedule: &mut ScheduleState,
-    algorithm: Algorithm,
     rating: ReviewRating,
     reviewed_at: i64,
+    fsrs_config: &crate::scheduling::FsrsConfig,
 ) {
-    match algorithm {
-        Algorithm::Sm2 => {
-            apply_sm2(schedule, rating, reviewed_at);
-        }
-        Algorithm::Fsrs => {
-            apply_fsrs(schedule, rating, reviewed_at);
-        }
-        Algorithm::Leitner => {
-            apply_leitner(schedule, rating, reviewed_at);
-        }
-    }
+    apply_fsrs(schedule, rating, reviewed_at, fsrs_config);
     schedule.updated_at = reviewed_at;
 }
 
@@ -126,10 +109,8 @@ async fn fetch_schedule_state(
     card_id: i64,
 ) -> AppResult<ScheduleState> {
     let state = sqlx::query_as::<_, ScheduleState>(
-        "SELECT card_id, sm2_ease, sm2_interval_days, sm2_repetitions, sm2_due_at,
-                leitner_box, leitner_due_at,
-                fsrs_stability, fsrs_difficulty, fsrs_due_at, fsrs_last_review_at,
-                updated_at
+        "SELECT card_id, fsrs_stability, fsrs_difficulty, fsrs_due_at, fsrs_last_review_at,
+                fsrs_learning_step, fsrs_relearning_step, updated_at
          FROM schedule_state WHERE card_id = ?",
     )
     .bind(card_id)
@@ -146,29 +127,21 @@ async fn update_schedule_state(
 ) -> AppResult<SqliteQueryResult> {
     let result = sqlx::query(
         "UPDATE schedule_state SET
-            sm2_ease = ?,
-            sm2_interval_days = ?,
-            sm2_repetitions = ?,
-            sm2_due_at = ?,
-            leitner_box = ?,
-            leitner_due_at = ?,
             fsrs_stability = ?,
             fsrs_difficulty = ?,
             fsrs_due_at = ?,
             fsrs_last_review_at = ?,
+            fsrs_learning_step = ?,
+            fsrs_relearning_step = ?,
             updated_at = ?
          WHERE card_id = ?",
     )
-    .bind(schedule.sm2_ease)
-    .bind(schedule.sm2_interval_days)
-    .bind(schedule.sm2_repetitions)
-    .bind(schedule.sm2_due_at)
-    .bind(schedule.leitner_box)
-    .bind(schedule.leitner_due_at)
     .bind(schedule.fsrs_stability)
     .bind(schedule.fsrs_difficulty)
     .bind(schedule.fsrs_due_at)
     .bind(schedule.fsrs_last_review_at)
+    .bind(schedule.fsrs_learning_step)
+    .bind(schedule.fsrs_relearning_step)
     .bind(schedule.updated_at)
     .bind(schedule.card_id)
     .execute(&mut **tx)
@@ -194,16 +167,14 @@ async fn insert_review(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     card_id: i64,
     rating: ReviewRating,
-    algorithm: Algorithm,
     reviewed_at: i64,
 ) -> AppResult<SqliteQueryResult> {
     let result = sqlx::query(
-        "INSERT INTO reviews (card_id, rating, algorithm, reviewed_at)
-         VALUES (?, ?, ?, ?)",
+        "INSERT INTO reviews (card_id, rating, reviewed_at)
+         VALUES (?, ?, ?)",
     )
     .bind(card_id)
     .bind(rating_to_str(rating))
-    .bind(algorithm_to_str(algorithm))
     .bind(reviewed_at)
     .execute(&mut **tx)
     .await?;
@@ -216,13 +187,5 @@ fn rating_to_str(rating: ReviewRating) -> &'static str {
         ReviewRating::Hard => "hard",
         ReviewRating::Good => "good",
         ReviewRating::Easy => "easy",
-    }
-}
-
-fn algorithm_to_str(algorithm: Algorithm) -> &'static str {
-    match algorithm {
-        Algorithm::Sm2 => "sm2",
-        Algorithm::Fsrs => "fsrs",
-        Algorithm::Leitner => "leitner",
     }
 }
