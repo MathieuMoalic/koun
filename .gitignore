@@ -1,0 +1,13 @@
+/backend/target
+/backend/koun.sqlite
+/backend/*.log
+/flutter/.dart_tool
+/flutter/build
+/flutter/.flutter-plugins-dependencies
+/flutter/.metadata
+/flutter/.idea
+/.idea
+/.direnv
+/.env
+/backend/koun.sqlite-shm
+/backend/koun.sqlite-wal
