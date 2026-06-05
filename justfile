@@ -27,7 +27,7 @@ bump TYPE:
     echo "✓ Version bumped to $new_version and tagged"
 
 backend:
-    cd backend && cargo watch -q -c -w src -w Cargo.toml -x 'run --'
+    cd backend && cargo watch -q -c -w src -w Cargo.toml -x 'run -- -v'
 
 android:
   adb reverse tcp:8080 tcp:8080
