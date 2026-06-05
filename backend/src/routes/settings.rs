@@ -6,6 +6,10 @@ use crate::error::AppResult;
 use crate::models::{AppState, FsrsSettings};
 use crate::scheduling::FsrsConfig;
 
+const DEFAULT_RETENTION: f64 = 0.9;
+const DEFAULT_LEARNING_STEPS: [&str; 2] = ["1m", "10m"];
+const DEFAULT_RELEARNING_STEPS: [&str; 1] = ["10m"];
+
 #[derive(sqlx::FromRow)]
 struct FsrsSettingsRow {
     desired_retention: f64,
@@ -94,12 +98,41 @@ async fn fetch_settings(pool: &SqlitePool) -> AppResult<FsrsSettingsRow> {
     .fetch_optional(pool)
     .await?;
 
-    row.ok_or(StatusCode::NOT_FOUND.into())
+    if let Some(row) = row {
+        return Ok(row);
+    }
+
+    let defaults = default_settings_row();
+    sqlx::query(
+        "INSERT INTO fsrs_settings (id, desired_retention, learning_steps, relearning_steps)
+         VALUES (1, ?, ?, ?)",
+    )
+    .bind(defaults.desired_retention)
+    .bind(defaults.learning_steps.clone())
+    .bind(defaults.relearning_steps.clone())
+    .execute(pool)
+    .await?;
+
+    Ok(defaults)
 }
 
 fn parse_steps_json(value: &str) -> AppResult<Vec<String>> {
-    let steps = serde_json::from_str::<Vec<String>>(value)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    if let Ok(steps) = serde_json::from_str::<Vec<String>>(value) {
+        if !steps.is_empty() {
+            return Ok(steps);
+        }
+    }
+
+    let steps = value
+        .split(',')
+        .map(|item| item.trim().trim_matches('"').to_string())
+        .filter(|item| !item.is_empty())
+        .collect::<Vec<_>>();
+
+    if steps.is_empty() {
+        return Err(StatusCode::BAD_REQUEST.into());
+    }
+
     Ok(steps)
 }
 
@@ -153,4 +186,14 @@ fn parse_step_duration(value: &str) -> Result<i64, StatusCode> {
         _ => return Err(StatusCode::BAD_REQUEST),
     };
     Ok(seconds)
+}
+
+fn default_settings_row() -> FsrsSettingsRow {
+    FsrsSettingsRow {
+        desired_retention: DEFAULT_RETENTION,
+        learning_steps: serde_json::to_string(&DEFAULT_LEARNING_STEPS)
+            .unwrap_or_else(|_| "[\"1m\",\"10m\"]".to_string()),
+        relearning_steps: serde_json::to_string(&DEFAULT_RELEARNING_STEPS)
+            .unwrap_or_else(|_| "[\"10m\"]".to_string()),
+    }
 }
