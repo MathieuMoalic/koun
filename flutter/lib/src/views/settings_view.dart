@@ -21,9 +21,16 @@ class _SettingsViewState extends State<SettingsView> {
   final TextEditingController _learningStepsController = TextEditingController();
   final TextEditingController _relearningStepsController = TextEditingController();
 
+  static const double _defaultRetention = 0.9;
+  static const String _defaultLearningSteps = '1m, 10m';
+  static const String _defaultRelearningSteps = '10m';
+
   @override
   void initState() {
     super.initState();
+    _retentionController.text = _defaultRetention.toStringAsFixed(2);
+    _learningStepsController.text = _defaultLearningSteps;
+    _relearningStepsController.text = _defaultRelearningSteps;
     _load();
   }
 
