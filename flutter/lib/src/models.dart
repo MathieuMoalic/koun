@@ -165,3 +165,14 @@ class FsrsSettings {
         'relearning_step_minutes': relearningStepMinutes,
       };
 }
+
+class VersionInfo {
+  final String version;
+
+  VersionInfo({required this.version});
+
+  factory VersionInfo.fromJson(Map<String, dynamic> json) {
+    return VersionInfo(version: json['version'] as String);
+  }
+}
+

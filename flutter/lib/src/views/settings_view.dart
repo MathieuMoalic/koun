@@ -17,6 +17,8 @@ class _SettingsViewState extends State<SettingsView> {
   List<ReviewsPerDay> _stats = [];
   bool _loading = true;
   String? _message;
+  final String _clientVersion = '0.1.0';
+  String? _serverVersion;
   final TextEditingController _retentionController = TextEditingController();
   final TextEditingController _learningStep1Controller = TextEditingController();
   final TextEditingController _learningStep2Controller = TextEditingController();
@@ -51,6 +53,7 @@ class _SettingsViewState extends State<SettingsView> {
     try {
       final stats = await widget.api.reviewsPerDay();
       final settings = await widget.api.getFsrsSettings();
+      final version = await widget.api.getVersion();
       setState(() {
         _stats = stats;
         _retentionController.text =
@@ -58,6 +61,7 @@ class _SettingsViewState extends State<SettingsView> {
         _learningStep1Controller.text = settings.learningStep1Minutes.toString();
         _learningStep2Controller.text = settings.learningStep2Minutes.toString();
         _relearningStepController.text = settings.relearningStepMinutes.toString();
+        _serverVersion = version.version;
         _loading = false;
       });
     } on UnauthorizedException {
@@ -113,6 +117,31 @@ class _SettingsViewState extends State<SettingsView> {
       await widget.onUnauthorized?.call();
     } catch (_) {
       setState(() => _message = 'Failed to save FSRS settings.');
+    }
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout?'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await widget.api.clearAuth();
+      await widget.onUnauthorized?.call();
     }
   }
 
@@ -221,10 +250,33 @@ class _SettingsViewState extends State<SettingsView> {
           onPressed: _editServerUrl,
           child: const Text('Server URL'),
         ),
+        const SizedBox(height: 12),
+        FilledButton.tonal(
+          onPressed: _logout,
+          child: const Text('Logout'),
+        ),
         if (_message != null) ...[
           const SizedBox(height: 12),
           Text(_message!),
         ],
+        const SizedBox(height: 24),
+        const Divider(),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Client version'),
+            Text(_clientVersion),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Server version'),
+            Text(_serverVersion ?? 'Loading...'),
+          ],
+        ),
         const SizedBox(height: 24),
         const Text('Reviews per day'),
         const SizedBox(height: 8),

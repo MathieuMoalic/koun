@@ -30,6 +30,19 @@ class ApiClient {
     await prefs.remove(_tokenKey);
     await prefs.remove(_refreshTokenKey);
   }
+
+  Future<VersionInfo> getVersion() async {
+    final baseUrl = await _baseUrl();
+    final response = await http.get(
+      Uri.parse('$baseUrl/version'),
+    );
+    if (response.statusCode != 200) {
+      throw HttpException('Failed to fetch version');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return VersionInfo.fromJson(data);
+  }
+
   Future<String?> _token() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
