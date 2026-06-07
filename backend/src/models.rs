@@ -83,8 +83,9 @@ pub struct ScheduleState {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FsrsSettings {
     pub desired_retention: f64,
-    pub learning_steps: Vec<String>,
-    pub relearning_steps: Vec<String>,
+    pub learning_step_1_minutes: i64,
+    pub learning_step_2_minutes: i64,
+    pub relearning_step_minutes: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

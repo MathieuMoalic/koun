@@ -13,13 +13,15 @@ use koun::{
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    if let Some(command) = cli.command {
-        return handle_command(command);
-    }
-
+    let command = cli.command;
     let mut config = cli.config;
 
-    let _log_guards = init_logging(&config, config.verbose);
+    let _log_guards = init_logging(&config);
+
+    if let Some(command) = command {
+        log_cli_args(Some(&command), &config);
+        return handle_command(command);
+    }
 
     if config.jwt_secret.is_none() {
         use rand::Rng;
@@ -34,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
         config.jwt_secret = Some(secret);
     }
 
-    log_config(&config);
+    log_cli_args(None, &config);
 
     let pool = make_pool(config.database_path.clone()).await?;
 
@@ -72,9 +74,6 @@ fn hash_password_interactive() -> anyhow::Result<()> {
     if password.trim().is_empty() {
         anyhow::bail!("Password cannot be empty");
     }
-    if password.len() < 8 {
-        anyhow::bail!("Password must be at least 8 characters");
-    }
 
     let salt = SaltString::generate(&mut OsRng);
     let hash = Argon2::default()
@@ -90,8 +89,15 @@ fn hash_password_interactive() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn log_config(config: &koun::config::Config) {
-    tracing::info!("=== Configuration ===");
+fn log_cli_args(command: Option<&Commands>, config: &koun::config::Config) {
+    tracing::info!("=== CLI Arguments ===");
+    tracing::info!(
+        "Command: {}",
+        match command {
+            Some(Commands::HashPassword) => "hash-password",
+            None => "<none>",
+        }
+    );
     tracing::info!("Bind address: {}", config.bind);
     tracing::info!("Database path: {}", config.database_path);
     tracing::info!("Log file: {}", config.log_file.display());

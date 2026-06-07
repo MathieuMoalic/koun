@@ -138,30 +138,30 @@ class ReviewsPerDay {
 
 class FsrsSettings {
   final double desiredRetention;
-  final List<String> learningSteps;
-  final List<String> relearningSteps;
+  final int learningStep1Minutes;
+  final int learningStep2Minutes;
+  final int relearningStepMinutes;
 
   FsrsSettings({
     required this.desiredRetention,
-    required this.learningSteps,
-    required this.relearningSteps,
+    required this.learningStep1Minutes,
+    required this.learningStep2Minutes,
+    required this.relearningStepMinutes,
   });
 
   factory FsrsSettings.fromJson(Map<String, dynamic> json) {
     return FsrsSettings(
       desiredRetention: (json['desired_retention'] as num).toDouble(),
-      learningSteps: (json['learning_steps'] as List<dynamic>)
-          .map((value) => value as String)
-          .toList(),
-      relearningSteps: (json['relearning_steps'] as List<dynamic>)
-          .map((value) => value as String)
-          .toList(),
+      learningStep1Minutes: json['learning_step_1_minutes'] as int,
+      learningStep2Minutes: json['learning_step_2_minutes'] as int,
+      relearningStepMinutes: json['relearning_step_minutes'] as int,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'desired_retention': desiredRetention,
-        'learning_steps': learningSteps,
-        'relearning_steps': relearningSteps,
+        'learning_step_1_minutes': learningStep1Minutes,
+        'learning_step_2_minutes': learningStep2Minutes,
+        'relearning_step_minutes': relearningStepMinutes,
       };
 }

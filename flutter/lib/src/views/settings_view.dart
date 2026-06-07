@@ -18,27 +18,31 @@ class _SettingsViewState extends State<SettingsView> {
   bool _loading = true;
   String? _message;
   final TextEditingController _retentionController = TextEditingController();
-  final TextEditingController _learningStepsController = TextEditingController();
-  final TextEditingController _relearningStepsController = TextEditingController();
+  final TextEditingController _learningStep1Controller = TextEditingController();
+  final TextEditingController _learningStep2Controller = TextEditingController();
+  final TextEditingController _relearningStepController = TextEditingController();
 
   static const double _defaultRetention = 0.9;
-  static const String _defaultLearningSteps = '1m, 10m';
-  static const String _defaultRelearningSteps = '10m';
+  static const int _defaultLearningStep1 = 1;
+  static const int _defaultLearningStep2 = 10;
+  static const int _defaultRelearningStep = 10;
 
   @override
   void initState() {
     super.initState();
     _retentionController.text = _defaultRetention.toStringAsFixed(2);
-    _learningStepsController.text = _defaultLearningSteps;
-    _relearningStepsController.text = _defaultRelearningSteps;
+    _learningStep1Controller.text = _defaultLearningStep1.toString();
+    _learningStep2Controller.text = _defaultLearningStep2.toString();
+    _relearningStepController.text = _defaultRelearningStep.toString();
     _load();
   }
 
   @override
   void dispose() {
     _retentionController.dispose();
-    _learningStepsController.dispose();
-    _relearningStepsController.dispose();
+    _learningStep1Controller.dispose();
+    _learningStep2Controller.dispose();
+    _relearningStepController.dispose();
     super.dispose();
   }
 
@@ -51,8 +55,9 @@ class _SettingsViewState extends State<SettingsView> {
         _stats = stats;
         _retentionController.text =
             settings.desiredRetention.toStringAsFixed(2);
-        _learningStepsController.text = settings.learningSteps.join(', ');
-        _relearningStepsController.text = settings.relearningSteps.join(', ');
+        _learningStep1Controller.text = settings.learningStep1Minutes.toString();
+        _learningStep2Controller.text = settings.learningStep2Minutes.toString();
+        _relearningStepController.text = settings.relearningStepMinutes.toString();
         _loading = false;
       });
     } on UnauthorizedException {
@@ -72,22 +77,34 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _saveFsrsSettings() async {
     setState(() => _message = null);
     final retention = double.tryParse(_retentionController.text.trim());
+    final step1 = int.tryParse(_learningStep1Controller.text.trim());
+    final step2 = int.tryParse(_learningStep2Controller.text.trim());
+    final relearningStep = int.tryParse(_relearningStepController.text.trim());
+
     if (retention == null) {
       setState(() => _message = 'Invalid desired retention.');
       return;
     }
-    final learningSteps = _parseSteps(_learningStepsController.text);
-    final relearningSteps = _parseSteps(_relearningStepsController.text);
-    if (learningSteps.isEmpty || relearningSteps.isEmpty) {
-      setState(() => _message = 'Steps must not be empty.');
+    if (step1 == null || step1 <= 0) {
+      setState(() => _message = 'Learning step 1 must be a positive number.');
       return;
     }
+    if (step2 == null || step2 <= 0) {
+      setState(() => _message = 'Learning step 2 must be a positive number.');
+      return;
+    }
+    if (relearningStep == null || relearningStep <= 0) {
+      setState(() => _message = 'Relearning step must be a positive number.');
+      return;
+    }
+
     try {
       await widget.api.setFsrsSettings(
         FsrsSettings(
           desiredRetention: retention,
-          learningSteps: learningSteps,
-          relearningSteps: relearningSteps,
+          learningStep1Minutes: step1,
+          learningStep2Minutes: step2,
+          relearningStepMinutes: relearningStep,
         ),
       );
       setState(() => _message = 'FSRS settings saved');
@@ -97,14 +114,6 @@ class _SettingsViewState extends State<SettingsView> {
     } catch (_) {
       setState(() => _message = 'Failed to save FSRS settings.');
     }
-  }
-
-  List<String> _parseSteps(String raw) {
-    return raw
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
   }
 
   Future<void> _syncQueue() async {
@@ -172,16 +181,29 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 12),
         TextField(
-          controller: _learningStepsController,
+          controller: _learningStep1Controller,
+          keyboardType: TextInputType.number,
           decoration: const InputDecoration(
-            labelText: 'Learning steps (e.g., 1m, 10m)',
+            labelText: 'Learning step 1 (minutes)',
+            helperText: 'Minutes before repeat',
           ),
         ),
         const SizedBox(height: 12),
         TextField(
-          controller: _relearningStepsController,
+          controller: _learningStep2Controller,
+          keyboardType: TextInputType.number,
           decoration: const InputDecoration(
-            labelText: 'Relearning steps (e.g., 10m)',
+            labelText: 'Learning step 2 (minutes)',
+            helperText: 'Minutes before graduating to long-term',
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _relearningStepController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Relearning step (minutes)',
+            helperText: 'Minutes when you forget a card',
           ),
         ),
         const SizedBox(height: 12),

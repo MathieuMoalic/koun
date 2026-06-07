@@ -40,3 +40,14 @@ pub struct Config {
     #[arg(long, env = "KOUN_PASSWORD_HASH")]
     pub password_hash: Option<String>,
 }
+
+impl Config {
+    #[must_use]
+    pub fn log_filter(&self) -> &'static str {
+        match self.verbose {
+            0 => "info,koun=info,axum=info,tower_http=info",
+            1 => "debug,koun=debug,axum=info,tower_http=info,sqlx=warn",
+            _ => "trace,koun=trace,axum=trace,tower_http=trace,sqlx=debug",
+        }
+    }
+}
