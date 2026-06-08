@@ -18,11 +18,7 @@ class AddCardView extends StatefulWidget {
 
 class _AddCardViewState extends State<AddCardView> {
   static const MethodChannel _audioChannel = MethodChannel('koun/audio');
-  final _frontController = TextEditingController();
-  final _backController = TextEditingController();
-  final _hintController = TextEditingController();
   final _searchController = TextEditingController();
-  bool _saving = false;
   String? _message;
   String _query = '';
   CardSort _sort = CardSort.dueDate;
@@ -40,9 +36,6 @@ class _AddCardViewState extends State<AddCardView> {
 
   @override
   void dispose() {
-    _frontController.dispose();
-    _backController.dispose();
-    _hintController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -82,29 +75,21 @@ class _AddCardViewState extends State<AddCardView> {
     }
   }
 
-  Future<void> _save() async {
-    setState(() {
-      _saving = true;
-      _message = null;
-    });
-    try {
-      await widget.api.createCard(
-        front: _frontController.text,
-        back: _backController.text,
-        hint: _hintController.text.isEmpty ? null : _hintController.text,
-      );
-      _frontController.clear();
-      _backController.clear();
-      _hintController.clear();
+  Future<void> _showAddCardModal() async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _AddCardModalSheet(
+        api: widget.api,
+        onUnauthorized: widget.onUnauthorized,
+      ),
+    );
+
+    if (saved == true) {
       setState(() => _message = 'Saved');
       await _loadCards();
-    } on UnauthorizedException {
-      setState(() => _message = 'Session expired. Please log in again.');
-      await widget.onUnauthorized?.call();
-    } catch (err) {
-      setState(() => _message = 'Failed to save');
-    } finally {
-      setState(() => _saving = false);
     }
   }
 
@@ -251,193 +236,186 @@ class _AddCardViewState extends State<AddCardView> {
 
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Column(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Flexible(
-            fit: FlexFit.loose,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+          Column(
+            children: [
+              if (_message != null) ...[
+                Text(_message!),
+                const SizedBox(height: 8),
+              ],
+              TextField(
+                controller: _searchController,
+                decoration: const InputDecoration(
+                  labelText: 'Search cards',
+                  prefixIcon: Icon(Icons.search),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  TextField(
-                    controller: _frontController,
-                    decoration: const InputDecoration(labelText: 'Polish'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _backController,
-                    decoration: const InputDecoration(labelText: 'English'),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _hintController,
-                    decoration: const InputDecoration(labelText: 'Hint (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const CircularProgressIndicator()
-                        : const Text('Add card'),
-                  ),
-                  if (_message != null) ...[
-                    const SizedBox(height: 8),
-                    Text(_message!),
-                  ],
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Search cards',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('Sort by'),
-                      const SizedBox(width: 12),
-                      DropdownButton<CardSort>(
-                        value: _sort,
-                        items: const [
-                          DropdownMenuItem(
-                            value: CardSort.dueDate,
-                            child: Text('Due date'),
-                          ),
-                          DropdownMenuItem(
-                            value: CardSort.stability,
-                            child: Text('Stability'),
-                          ),
-                          DropdownMenuItem(
-                            value: CardSort.difficulty,
-                            child: Text('Difficulty'),
-                          ),
-                          DropdownMenuItem(
-                            value: CardSort.retrievability,
-                            child: Text('Retrievability'),
-                          ),
-                          DropdownMenuItem(
-                            value: CardSort.createdAt,
-                            child: Text('Created date'),
-                          ),
-                          DropdownMenuItem(
-                            value: CardSort.updatedAt,
-                            child: Text('Updated date'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => _sort = value);
-                          }
-                        },
+                  const Text('Sort by'),
+                  const SizedBox(width: 12),
+                  DropdownButton<CardSort>(
+                    value: _sort,
+                    items: const [
+                      DropdownMenuItem(
+                        value: CardSort.dueDate,
+                        child: Text('Due date'),
+                      ),
+                      DropdownMenuItem(
+                        value: CardSort.stability,
+                        child: Text('Stability'),
+                      ),
+                      DropdownMenuItem(
+                        value: CardSort.difficulty,
+                        child: Text('Difficulty'),
+                      ),
+                      DropdownMenuItem(
+                        value: CardSort.retrievability,
+                        child: Text('Retrievability'),
+                      ),
+                      DropdownMenuItem(
+                        value: CardSort.createdAt,
+                        child: Text('Created date'),
+                      ),
+                      DropdownMenuItem(
+                        value: CardSort.updatedAt,
+                        child: Text('Updated date'),
                       ),
                     ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _sort = value);
+                      }
+                    },
                   ),
-                  const SizedBox(height: 8),
                 ],
               ),
-            ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _loadingCards
+                    ? const Center(child: CircularProgressIndicator())
+                    : filteredCards.isEmpty
+                        ? const Center(child: Text('No cards found'))
+                        : ListView.separated(
+                            padding: const EdgeInsets.only(bottom: 88),
+                            itemCount: filteredCards.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 6),
+                            itemBuilder: (context, index) {
+                              final card = filteredCards[index];
+                              return Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              card.front,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (card.audioAvailable)
+                                            _compactIconButton(
+                                              icon: Icons.play_arrow,
+                                              tooltip: 'Play audio',
+                                              onPressed: () => _playAudio(card),
+                                            ),
+                                          _compactIconButton(
+                                            icon: Icons.edit,
+                                            tooltip: 'Edit card',
+                                            onPressed: () => _editCard(card),
+                                          ),
+                                          _compactIconButton(
+                                            icon: Icons.delete,
+                                            tooltip: 'Delete card',
+                                            onPressed: () => _deleteCard(card),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        card.back,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Wrap(
+                                        spacing: 10,
+                                        runSpacing: 2,
+                                        children: [
+                                          _metricText(
+                                            context,
+                                            'D',
+                                            card.fsrsDifficulty
+                                                .toStringAsFixed(2),
+                                          ),
+                                          _metricText(
+                                            context,
+                                            'S',
+                                            card.fsrsStability
+                                                .toStringAsFixed(2),
+                                          ),
+                                          _metricText(
+                                            context,
+                                            'R',
+                                            (card.fsrsRetrievability * 100)
+                                                .toStringAsFixed(0),
+                                            suffix: '%',
+                                          ),
+                                          _metricText(
+                                            context,
+                                            'Due',
+                                            _formatRelative(card.fsrsDueAt),
+                                          ),
+                                        ],
+                                      ),
+                                      if (card.hint != null &&
+                                          card.hint!.isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Hint: ${card.hint}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _loadingCards
-                ? const Center(child: CircularProgressIndicator())
-                : filteredCards.isEmpty
-                    ? const Center(child: Text('No cards found'))
-                    : ListView.separated(
-                        itemCount: filteredCards.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final card = filteredCards[index];
-                          return Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    card.front,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(card.back),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 4,
-                                    children: [
-                                      _metricText(
-                                        context,
-                                        'D',
-                                        card.fsrsDifficulty.toStringAsFixed(2),
-                                      ),
-                                      _metricText(
-                                        context,
-                                        'S',
-                                        card.fsrsStability.toStringAsFixed(2),
-                                      ),
-                                      _metricText(
-                                        context,
-                                        'R',
-                                        (card.fsrsRetrievability * 100)
-                                            .toStringAsFixed(0),
-                                        suffix: '%',
-                                      ),
-                                      _metricText(
-                                        context,
-                                        'Due',
-                                        _formatRelative(card.fsrsDueAt),
-                                      ),
-                                    ],
-                                  ),
-                                  if (card.hint != null && card.hint!.isNotEmpty) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Hint: ${card.hint}',
-                                      style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.7),
-                                      ),
-                                    ),
-                                  ],
-                                  if (card.audioAvailable) ...[
-                                    const SizedBox(height: 8),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: IconButton(
-                                        onPressed: () => _playAudio(card),
-                                        icon: const Icon(Icons.play_arrow),
-                                        tooltip: 'Play audio',
-                                      ),
-                                    ),
-                                  ],
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      IconButton(
-                                        onPressed: () => _editCard(card),
-                                        icon: const Icon(Icons.edit),
-                                        tooltip: 'Edit card',
-                                      ),
-                                      IconButton(
-                                        onPressed: () => _deleteCard(card),
-                                        icon: const Icon(Icons.delete),
-                                        tooltip: 'Delete card',
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: FloatingActionButton(
+              onPressed: _showAddCardModal,
+              tooltip: 'Add card',
+              child: const Icon(Icons.add),
+            ),
           ),
         ],
       ),
@@ -515,6 +493,144 @@ class _AddCardViewState extends State<AddCardView> {
     final color = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7);
     return Text('$label $value$suffix', style: TextStyle(color: color));
   }
+
+  Widget _compactIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon),
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+      splashRadius: 16,
+    );
+  }
 }
 
 enum CardSort { dueDate, stability, difficulty, retrievability, createdAt, updatedAt }
+
+class _AddCardModalSheet extends StatefulWidget {
+  final ApiClient api;
+  final Future<void> Function()? onUnauthorized;
+
+  const _AddCardModalSheet({
+    required this.api,
+    this.onUnauthorized,
+  });
+
+  @override
+  State<_AddCardModalSheet> createState() => _AddCardModalSheetState();
+}
+
+class _AddCardModalSheetState extends State<_AddCardModalSheet> {
+  final _frontController = TextEditingController();
+  final _backController = TextEditingController();
+  final _hintController = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _frontController.dispose();
+    _backController.dispose();
+    _hintController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final front = _frontController.text.trim();
+    final back = _backController.text.trim();
+    final hint = _hintController.text.trim();
+    if (front.isEmpty || back.isEmpty) {
+      setState(() => _error = 'Polish and English are required.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await widget.api.createCard(
+        front: front,
+        back: back,
+        hint: hint.isEmpty ? null : hint,
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(true);
+    } on UnauthorizedException {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = 'Failed to save');
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 12, 24, bottomInset + 24),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Add card', style: TextStyle(fontSize: 20)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _frontController,
+              decoration: const InputDecoration(labelText: 'Polish'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _backController,
+              decoration: const InputDecoration(labelText: 'English'),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _hintController,
+              decoration: const InputDecoration(labelText: 'Hint (optional)'),
+            ),
+            const SizedBox(height: 12),
+            if (_error != null) ...[
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              const SizedBox(height: 8),
+            ],
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
