@@ -5,6 +5,7 @@ class CardModel {
   final String front;
   final String back;
   final String? hint;
+  final bool audioAvailable;
   final bool suspended;
   final int createdAt;
   final int updatedAt;
@@ -19,6 +20,7 @@ class CardModel {
     required this.front,
     required this.back,
     required this.hint,
+    required this.audioAvailable,
     required this.suspended,
     required this.createdAt,
     required this.updatedAt,
@@ -35,6 +37,7 @@ class CardModel {
       front: json['front'] as String,
       back: json['back'] as String,
       hint: json['hint'] as String?,
+      audioAvailable: json['audio_available'] as bool? ?? false,
       suspended: json['suspended'] as bool? ?? false,
       createdAt: json['created_at'] as int,
       updatedAt: json['updated_at'] as int,
@@ -175,4 +178,3 @@ class VersionInfo {
     return VersionInfo(version: json['version'] as String);
   }
 }
-

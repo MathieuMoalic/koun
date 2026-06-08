@@ -31,6 +31,14 @@ class ApiClient {
     await prefs.remove(_refreshTokenKey);
   }
 
+  Future<String> authToken() async {
+    final token = await _token();
+    if (token == null) {
+      throw HttpException('Missing auth token');
+    }
+    return token;
+  }
+
   Future<VersionInfo> getVersion() async {
     final baseUrl = await _baseUrl();
     final response = await http.get(
@@ -65,6 +73,11 @@ class ApiClient {
   }
 
   Future<bool> hasToken() async => (await _token()) != null;
+
+  Future<String> cardAudioUrl(int cardId) async {
+    final baseUrl = await _baseUrl();
+    return '$baseUrl/cards/$cardId/audio';
+  }
 
   Future<http.Response> _authedGet(String path) async {
     final baseUrl = await _baseUrl();

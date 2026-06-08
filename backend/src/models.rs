@@ -58,6 +58,7 @@ pub struct CardListItem {
     pub front: String,
     pub back: String,
     pub hint: Option<String>,
+    pub audio_available: bool,
     pub suspended: bool,
     pub created_at: i64,
     pub updated_at: i64,

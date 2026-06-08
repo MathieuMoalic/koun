@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../api.dart';
 import '../models.dart';
@@ -14,6 +15,7 @@ class AddCardView extends StatefulWidget {
 }
 
 class _AddCardViewState extends State<AddCardView> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
   final _frontController = TextEditingController();
   final _backController = TextEditingController();
   final _hintController = TextEditingController();
@@ -36,11 +38,28 @@ class _AddCardViewState extends State<AddCardView> {
 
   @override
   void dispose() {
+    _audioPlayer.dispose();
     _frontController.dispose();
     _backController.dispose();
     _hintController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _playAudio(CardModel card) async {
+    try {
+      final token = await widget.api.authToken();
+      final url = await widget.api.cardAudioUrl(card.id);
+      await _audioPlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+      await _audioPlayer.play();
+    } catch (_) {
+      setState(() => _message = 'Failed to play audio');
+    }
   }
 
   Future<void> _loadCards() async {
@@ -250,6 +269,17 @@ class _AddCardViewState extends State<AddCardView> {
                                             .colorScheme
                                             .onSurface
                                             .withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                  ],
+                                  if (card.audioAvailable) ...[
+                                    const SizedBox(height: 8),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: IconButton(
+                                        onPressed: () => _playAudio(card),
+                                        icon: const Icon(Icons.play_arrow),
+                                        tooltip: 'Play audio',
                                       ),
                                     ),
                                   ],

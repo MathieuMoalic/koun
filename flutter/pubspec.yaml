@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
+  just_audio: ^0.9.39
   shared_preferences: ^2.2.3
 
 dev_dependencies:

@@ -39,6 +39,26 @@ pub struct Config {
 
     #[arg(long, env = "KOUN_PASSWORD_HASH")]
     pub password_hash: Option<String>,
+
+    #[arg(long, env = "KOUN_ELEVENLABS_API_KEY")]
+    pub elevenlabs_api_key: Option<String>,
+
+    #[arg(
+        long,
+        env = "KOUN_ELEVENLABS_VOICE_ID",
+        default_value = "cgSgspJ2msm6clMCkdW9"
+    )]
+    pub elevenlabs_voice_id: String,
+
+    #[arg(
+        long,
+        env = "KOUN_ELEVENLABS_MODEL_ID",
+        default_value = "eleven_multilingual_v2"
+    )]
+    pub elevenlabs_model_id: String,
+
+    #[arg(long, env = "KOUN_AUDIO_DIR", default_value = "card_audio")]
+    pub audio_dir: PathBuf,
 }
 
 impl Config {
