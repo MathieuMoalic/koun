@@ -120,45 +120,36 @@ class _LearnViewState extends State<LearnView> {
             Text('Hint: ${card.hint}'),
           ],
           const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final buttonWidth = constraints.maxWidth * 0.25;
-              return Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  SizedBox(
-                    width: buttonWidth,
-                    child: FilledButton.tonal(
-                      onPressed: () => _submit(ReviewRating.again),
-                      child: const Text('Again'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: buttonWidth,
-                    child: FilledButton.tonal(
-                      onPressed: () => _submit(ReviewRating.hard),
-                      child: const Text('Hard'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: buttonWidth,
-                    child: FilledButton(
-                      onPressed: () => _submit(ReviewRating.good),
-                      child: const Text('Good'),
-                    ),
-                  ),
-                  SizedBox(
-                    width: buttonWidth,
-                    child: FilledButton(
-                      onPressed: () => _submit(ReviewRating.easy),
-                      child: const Text('Easy'),
-                    ),
-                  ),
-                ],
-              );
-            },
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonal(
+                  onPressed: () => _submit(ReviewRating.again),
+                  child: const Text('Again'),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: FilledButton.tonal(
+                  onPressed: () => _submit(ReviewRating.hard),
+                  child: const Text('Hard'),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => _submit(ReviewRating.good),
+                  child: const Text('Good'),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => _submit(ReviewRating.easy),
+                  child: const Text('Easy'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
         ],

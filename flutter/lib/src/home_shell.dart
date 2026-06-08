@@ -51,7 +51,7 @@ class _HomeShellState extends State<HomeShell> {
     ];
 
     return Scaffold(
-      body: tabs[_index],
+      body: SafeArea(child: tabs[_index]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),

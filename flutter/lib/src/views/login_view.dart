@@ -62,37 +62,39 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('koun', style: TextStyle(fontSize: 28)),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
-              ),
-              const SizedBox(height: 16),
-              if (_error != null)
-                Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('koun', style: TextStyle(fontSize: 28)),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Password'),
                 ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _loading ? null : _login,
-                child: _loading
-                    ? const CircularProgressIndicator()
-                    : const Text('Login'),
-              ),
-              TextButton(
-                onPressed: _editServerUrl,
-                child: const Text('Server URL'),
-              ),
-            ],
+                const SizedBox(height: 16),
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: _loading ? null : _login,
+                  child: _loading
+                      ? const CircularProgressIndicator()
+                      : const Text('Login'),
+                ),
+                TextButton(
+                  onPressed: _editServerUrl,
+                  child: const Text('Server URL'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
