@@ -124,27 +124,31 @@ class _LearnViewState extends State<LearnView> {
             children: [
               Expanded(
                 child: FilledButton.tonal(
+                  style: _reviewButtonStyle(),
                   onPressed: () => _submit(ReviewRating.again),
                   child: const Text('Again'),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               Expanded(
                 child: FilledButton.tonal(
+                  style: _reviewButtonStyle(),
                   onPressed: () => _submit(ReviewRating.hard),
                   child: const Text('Hard'),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               Expanded(
                 child: FilledButton(
+                  style: _reviewButtonStyle(),
                   onPressed: () => _submit(ReviewRating.good),
                   child: const Text('Good'),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               Expanded(
                 child: FilledButton(
+                  style: _reviewButtonStyle(),
                   onPressed: () => _submit(ReviewRating.easy),
                   child: const Text('Easy'),
                 ),
@@ -154,6 +158,16 @@ class _LearnViewState extends State<LearnView> {
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+
+  ButtonStyle _reviewButtonStyle() {
+    return FilledButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+      minimumSize: const Size(0, 32),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
     );
   }
 }

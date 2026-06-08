@@ -253,82 +253,93 @@ class _AddCardViewState extends State<AddCardView> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          TextField(
-            controller: _frontController,
-            decoration: const InputDecoration(labelText: 'Polish'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _backController,
-            decoration: const InputDecoration(labelText: 'English'),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _hintController,
-            decoration: const InputDecoration(labelText: 'Hint (optional)'),
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const CircularProgressIndicator()
-                : const Text('Add card'),
-          ),
-          if (_message != null) ...[
-            const SizedBox(height: 12),
-            Text(_message!),
-          ],
-          const SizedBox(height: 24),
-          TextField(
-            controller: _searchController,
-            decoration: const InputDecoration(
-              labelText: 'Search cards',
-              prefixIcon: Icon(Icons.search),
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _frontController,
+                    decoration: const InputDecoration(labelText: 'Polish'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _backController,
+                    decoration: const InputDecoration(labelText: 'English'),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _hintController,
+                    decoration: const InputDecoration(labelText: 'Hint (optional)'),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const CircularProgressIndicator()
+                        : const Text('Add card'),
+                  ),
+                  if (_message != null) ...[
+                    const SizedBox(height: 8),
+                    Text(_message!),
+                  ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Search cards',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Text('Sort by'),
+                      const SizedBox(width: 12),
+                      DropdownButton<CardSort>(
+                        value: _sort,
+                        items: const [
+                          DropdownMenuItem(
+                            value: CardSort.dueDate,
+                            child: Text('Due date'),
+                          ),
+                          DropdownMenuItem(
+                            value: CardSort.stability,
+                            child: Text('Stability'),
+                          ),
+                          DropdownMenuItem(
+                            value: CardSort.difficulty,
+                            child: Text('Difficulty'),
+                          ),
+                          DropdownMenuItem(
+                            value: CardSort.retrievability,
+                            child: Text('Retrievability'),
+                          ),
+                          DropdownMenuItem(
+                            value: CardSort.createdAt,
+                            child: Text('Created date'),
+                          ),
+                          DropdownMenuItem(
+                            value: CardSort.updatedAt,
+                            child: Text('Updated date'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _sort = value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Text('Sort by'),
-              const SizedBox(width: 12),
-              DropdownButton<CardSort>(
-                value: _sort,
-                items: const [
-                  DropdownMenuItem(
-                    value: CardSort.dueDate,
-                    child: Text('Due date'),
-                  ),
-                  DropdownMenuItem(
-                    value: CardSort.stability,
-                    child: Text('Stability'),
-                  ),
-                  DropdownMenuItem(
-                    value: CardSort.difficulty,
-                    child: Text('Difficulty'),
-                  ),
-                  DropdownMenuItem(
-                    value: CardSort.retrievability,
-                    child: Text('Retrievability'),
-                  ),
-                  DropdownMenuItem(
-                    value: CardSort.createdAt,
-                    child: Text('Created date'),
-                  ),
-                  DropdownMenuItem(
-                    value: CardSort.updatedAt,
-                    child: Text('Updated date'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _sort = value);
-                  }
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Expanded(
             child: _loadingCards
                 ? const Center(child: CircularProgressIndicator())
