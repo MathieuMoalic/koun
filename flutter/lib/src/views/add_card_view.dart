@@ -1,8 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 
 import '../api.dart';
 import '../models.dart';
@@ -18,7 +17,7 @@ class AddCardView extends StatefulWidget {
 }
 
 class _AddCardViewState extends State<AddCardView> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  static const MethodChannel _audioChannel = MethodChannel('koun/audio');
   final _frontController = TextEditingController();
   final _backController = TextEditingController();
   final _hintController = TextEditingController();
@@ -41,7 +40,6 @@ class _AddCardViewState extends State<AddCardView> {
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
     _frontController.dispose();
     _backController.dispose();
     _hintController.dispose();
@@ -52,11 +50,9 @@ class _AddCardViewState extends State<AddCardView> {
   Future<void> _playAudio(CardModel card) async {
     try {
       final bytes = await widget.api.downloadCardAudio(card.id);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/card-${card.id}.mp3');
+      final file = File('${Directory.systemTemp.path}/card-${card.id}.mp3');
       await file.writeAsBytes(bytes, flush: true);
-      await _audioPlayer.setFilePath(file.path);
-      await _audioPlayer.play();
+      await _audioChannel.invokeMethod<void>('playFile', {'path': file.path});
     } on UnauthorizedException {
       setState(() => _message = 'Session expired. Please log in again.');
       await widget.onUnauthorized?.call();

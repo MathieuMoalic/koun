@@ -120,8 +120,10 @@ class _LearnViewState extends State<LearnView> {
             Text('Hint: ${card.hint}'),
           ],
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               FilledButton.tonal(
                 onPressed: () => _submit(ReviewRating.again),
