@@ -216,6 +216,7 @@ async fn insert_schedule_state(pool: &SqlitePool, card_id: i64, now: i64) -> App
 struct ElevenLabsTtsRequest<'a> {
     text: &'a str,
     model_id: &'a str,
+    language_code: &'a str,
     voice_settings: ElevenLabsVoiceSettings,
 }
 
@@ -251,6 +252,7 @@ async fn generate_card_audio(state: &AppState, card_id: i64, text: &str) -> AppR
         .json(&ElevenLabsTtsRequest {
             text,
             model_id: &state.config.elevenlabs_model_id,
+            language_code: "pl",
             voice_settings: ElevenLabsVoiceSettings {
                 stability: 0.5,
                 similarity_boost: 0.75,
