@@ -103,7 +103,7 @@ pub async fn create_card(
     .await?;
 
     insert_schedule_state(&state.pool, card.id, now).await?;
-    if let Err(err) = generate_card_audio(&state, card.id, &card.back).await {
+    if let Err(err) = generate_card_audio(&state, card.id, &card.front).await {
         tracing::warn!(card_id = card.id, error = %err, "Failed to generate ElevenLabs audio");
     }
 
@@ -116,19 +116,24 @@ pub async fn get_card_audio(
 ) -> AppResult<Response<Body>> {
     #[derive(sqlx::FromRow)]
     struct AudioRow {
+        front: String,
         audio_path: Option<String>,
     }
 
-    let row = sqlx::query_as::<_, AudioRow>("SELECT audio_path FROM cards WHERE id = ?")
+    let row = sqlx::query_as::<_, AudioRow>("SELECT front, audio_path FROM cards WHERE id = ?")
         .bind(id)
         .fetch_optional(&state.pool)
         .await?
         .ok_or(StatusCode::NOT_FOUND)?;
-    let audio_path = row.audio_path.ok_or(StatusCode::NOT_FOUND)?;
-    let path = state.config.audio_dir.join(audio_path);
+    let audio_path = row.audio_path.unwrap_or_else(|| format!("card-{id}.mp3"));
+    let path = state.config.audio_dir.join(&audio_path);
+    if !path.exists() {
+        tracing::info!(card_id = id, "Regenerating missing audio");
+        generate_card_audio(&state, id, &row.front).await?;
+    }
     let bytes = fs::read(path).await.map_err(|_| StatusCode::NOT_FOUND)?;
 
-        Ok((
+    Ok((
         [
             (header::CONTENT_TYPE, "audio/mpeg"),
             (header::CACHE_CONTROL, "no-store"),

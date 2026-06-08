@@ -60,6 +60,12 @@ class _AddCardViewState extends State<AddCardView> {
     } on UnauthorizedException {
       setState(() => _message = 'Session expired. Please log in again.');
       await widget.onUnauthorized?.call();
+    } on HttpException catch (error) {
+      if (error.message == 'Failed to fetch card audio') {
+        setState(() => _message = 'Audio not available yet');
+        return;
+      }
+      setState(() => _message = 'Failed to play audio');
     } catch (_) {
       setState(() => _message = 'Failed to play audio');
     }
@@ -103,6 +109,124 @@ class _AddCardViewState extends State<AddCardView> {
       setState(() => _message = 'Failed to save');
     } finally {
       setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _editCard(CardModel card) async {
+    final frontController = TextEditingController(text: card.front);
+    final backController = TextEditingController(text: card.back);
+    final hintController = TextEditingController(text: card.hint ?? '');
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit card'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: frontController,
+                decoration: const InputDecoration(labelText: 'Polish'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: backController,
+                decoration: const InputDecoration(labelText: 'English'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: hintController,
+                decoration: const InputDecoration(labelText: 'Hint (optional)'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSave != true) {
+      frontController.dispose();
+      backController.dispose();
+      hintController.dispose();
+      return;
+    }
+
+    final front = frontController.text.trim();
+    final back = backController.text.trim();
+    final hint = hintController.text.trim();
+    if (front.isEmpty || back.isEmpty) {
+      setState(() => _message = 'Polish and English are required.');
+      frontController.dispose();
+      backController.dispose();
+      hintController.dispose();
+      return;
+    }
+
+    try {
+      await widget.api.updateCard(
+        id: card.id,
+        front: front,
+        back: back,
+        hint: hint.isEmpty ? null : hint,
+      );
+      setState(() => _message = 'Card updated');
+      await _loadCards();
+    } on UnauthorizedException {
+      setState(() => _message = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
+    } catch (_) {
+      setState(() => _message = 'Failed to update card');
+    } finally {
+      frontController.dispose();
+      backController.dispose();
+      hintController.dispose();
+    }
+  }
+
+  Future<void> _deleteCard(CardModel card) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete card?'),
+        content: Text('Delete "${card.front}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await widget.api.deleteCard(card.id);
+      setState(() => _message = 'Card deleted');
+      await _loadCards();
+    } on UnauthorizedException {
+      setState(() => _message = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
+    } catch (_) {
+      setState(() => _message = 'Failed to delete card');
     }
   }
 
@@ -286,6 +410,21 @@ class _AddCardViewState extends State<AddCardView> {
                                       ),
                                     ),
                                   ],
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        onPressed: () => _editCard(card),
+                                        icon: const Icon(Icons.edit),
+                                        tooltip: 'Edit card',
+                                      ),
+                                      IconButton(
+                                        onPressed: () => _deleteCard(card),
+                                        icon: const Icon(Icons.delete),
+                                        tooltip: 'Delete card',
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),

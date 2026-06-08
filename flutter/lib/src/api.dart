@@ -117,6 +117,20 @@ class ApiClient {
     );
   }
 
+  Future<http.Response> _authedDelete(String path) async {
+    final baseUrl = await _baseUrl();
+    final token = await _token();
+    if (token == null) {
+      throw HttpException('Missing auth token');
+    }
+    return http.delete(
+      Uri.parse('$baseUrl$path'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+  }
+
   Future<http.Response> _authedPut(String path, Map<String, dynamic> body) async {
     final baseUrl = await _baseUrl();
     final token = await _token();
@@ -161,6 +175,35 @@ class ApiClient {
     }
     if (response.statusCode != 200) {
       throw HttpException('Failed to create card');
+    }
+  }
+
+  Future<void> updateCard({
+    required int id,
+    required String front,
+    required String back,
+    String? hint,
+  }) async {
+    final response = await _authedPut('/cards/$id', {
+      'front': front,
+      'back': back,
+      'hint': hint,
+    });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw HttpException('Failed to update card');
+    }
+  }
+
+  Future<void> deleteCard(int id) async {
+    final response = await _authedDelete('/cards/$id');
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 204) {
+      throw HttpException('Failed to delete card');
     }
   }
 
