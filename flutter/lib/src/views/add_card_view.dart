@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../api.dart';
 import '../models.dart';
@@ -48,15 +51,15 @@ class _AddCardViewState extends State<AddCardView> {
 
   Future<void> _playAudio(CardModel card) async {
     try {
-      final token = await widget.api.authToken();
-      final url = await widget.api.cardAudioUrl(card.id);
-      await _audioPlayer.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(url),
-          headers: {'Authorization': 'Bearer $token'},
-        ),
-      );
+      final bytes = await widget.api.downloadCardAudio(card.id);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/card-${card.id}.mp3');
+      await file.writeAsBytes(bytes, flush: true);
+      await _audioPlayer.setFilePath(file.path);
       await _audioPlayer.play();
+    } on UnauthorizedException {
+      setState(() => _message = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
     } catch (_) {
       setState(() => _message = 'Failed to play audio');
     }

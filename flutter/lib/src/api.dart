@@ -79,6 +79,17 @@ class ApiClient {
     return '$baseUrl/cards/$cardId/audio';
   }
 
+  Future<List<int>> downloadCardAudio(int cardId) async {
+    final response = await _authedGet('/cards/$cardId/audio');
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw HttpException('Failed to fetch card audio');
+    }
+    return response.bodyBytes;
+  }
+
   Future<http.Response> _authedGet(String path) async {
     final baseUrl = await _baseUrl();
     final token = await _token();
