@@ -224,6 +224,7 @@ struct ElevenLabsTtsRequest<'a> {
 struct ElevenLabsVoiceSettings {
     stability: f32,
     similarity_boost: f32,
+    speed: f32,
 }
 
 async fn generate_card_audio(state: &AppState, card_id: i64, text: &str) -> AppResult<()> {
@@ -256,6 +257,7 @@ async fn generate_card_audio(state: &AppState, card_id: i64, text: &str) -> AppR
             voice_settings: ElevenLabsVoiceSettings {
                 stability: 0.5,
                 similarity_boost: 0.75,
+                speed: 0.8,
             },
         })
         .send()
