@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../card_audio_player.dart';
 import '../models.dart';
 
 class LearnView extends StatefulWidget {
@@ -14,10 +15,12 @@ class LearnView extends StatefulWidget {
 }
 
 class _LearnViewState extends State<LearnView> {
+  final CardAudioPlayer _audioPlayer = createCardAudioPlayer();
   NextReviewResponse? _response;
   bool _loading = true;
   bool _showBack = false;
   String? _error;
+  int? _lastAutoPlayedCardId;
 
   @override
   void initState() {
@@ -36,6 +39,7 @@ class _LearnViewState extends State<LearnView> {
         _error = null;
         _loading = false;
       });
+      await _playCardAudioOnce(response.next?.card);
     } on UnauthorizedException {
       setState(() {
         _error = 'Session expired. Please log in again.';
@@ -68,6 +72,25 @@ class _LearnViewState extends State<LearnView> {
       await widget.onUnauthorized?.call();
     } catch (_) {
       setState(() => _error = 'Failed to submit review.');
+    }
+  }
+
+  Future<void> _playCardAudioOnce(ReviewCard? card) async {
+    if (card == null || _lastAutoPlayedCardId == card.id) {
+      return;
+    }
+    _lastAutoPlayedCardId = card.id;
+    try {
+      final bytes = await widget.api.downloadCardAudio(card.id);
+      await _audioPlayer.playBytes(bytes, cardId: card.id);
+    } on UnauthorizedException {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = 'Session expired. Please log in again.');
+      await widget.onUnauthorized?.call();
+    } catch (_) {
+      // If autoplay fails, keep the card visible and let the user continue.
     }
   }
 
