@@ -1,9 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../api.dart';
+import '../card_audio_player.dart';
 import '../models.dart';
 
 class AddCardView extends StatefulWidget {
@@ -17,7 +15,7 @@ class AddCardView extends StatefulWidget {
 }
 
 class _AddCardViewState extends State<AddCardView> {
-  static const MethodChannel _audioChannel = MethodChannel('koun/audio');
+  final CardAudioPlayer _audioPlayer = createCardAudioPlayer();
   final _searchController = TextEditingController();
   String? _message;
   String _query = '';
@@ -43,13 +41,11 @@ class _AddCardViewState extends State<AddCardView> {
   Future<void> _playAudio(CardModel card) async {
     try {
       final bytes = await widget.api.downloadCardAudio(card.id);
-      final file = File('${Directory.systemTemp.path}/card-${card.id}.mp3');
-      await file.writeAsBytes(bytes, flush: true);
-      await _audioChannel.invokeMethod<void>('playFile', {'path': file.path});
+      await _audioPlayer.playBytes(bytes, cardId: card.id);
     } on UnauthorizedException {
       setState(() => _message = 'Session expired. Please log in again.');
       await widget.onUnauthorized?.call();
-    } on HttpException catch (error) {
+    } on ApiException catch (error) {
       if (error.message == 'Failed to fetch card audio') {
         setState(() => _message = 'Audio not available yet');
         return;

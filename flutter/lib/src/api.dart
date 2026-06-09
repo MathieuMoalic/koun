@@ -1,12 +1,20 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 
-class UnauthorizedException extends HttpException {
+class ApiException implements Exception {
+  final String message;
+
+  const ApiException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+class UnauthorizedException extends ApiException {
   UnauthorizedException() : super('Unauthorized');
 }
 class ApiClient {
@@ -34,7 +42,7 @@ class ApiClient {
   Future<String> authToken() async {
     final token = await _token();
     if (token == null) {
-      throw HttpException('Missing auth token');
+      throw const ApiException('Missing auth token');
     }
     return token;
   }
@@ -45,7 +53,7 @@ class ApiClient {
       Uri.parse('$baseUrl/version'),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Failed to fetch version');
+      throw const ApiException('Failed to fetch version');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return VersionInfo.fromJson(data);
@@ -64,7 +72,7 @@ class ApiClient {
       body: jsonEncode({'password': password}),
     );
     if (response.statusCode != 200) {
-      throw HttpException('Login failed: ${response.statusCode}');
+      throw ApiException('Login failed: ${response.statusCode}');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
@@ -85,7 +93,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to fetch card audio');
+      throw const ApiException('Failed to fetch card audio');
     }
     return response.bodyBytes;
   }
@@ -94,7 +102,7 @@ class ApiClient {
     final baseUrl = await _baseUrl();
     final token = await _token();
     if (token == null) {
-      throw HttpException('Missing auth token');
+      throw const ApiException('Missing auth token');
     }
     return http.get(Uri.parse('$baseUrl$path'), headers: {
       'Authorization': 'Bearer $token',
@@ -105,7 +113,7 @@ class ApiClient {
     final baseUrl = await _baseUrl();
     final token = await _token();
     if (token == null) {
-      throw HttpException('Missing auth token');
+      throw const ApiException('Missing auth token');
     }
     return http.post(
       Uri.parse('$baseUrl$path'),
@@ -121,7 +129,7 @@ class ApiClient {
     final baseUrl = await _baseUrl();
     final token = await _token();
     if (token == null) {
-      throw HttpException('Missing auth token');
+      throw const ApiException('Missing auth token');
     }
     return http.delete(
       Uri.parse('$baseUrl$path'),
@@ -135,7 +143,7 @@ class ApiClient {
     final baseUrl = await _baseUrl();
     final token = await _token();
     if (token == null) {
-      throw HttpException('Missing auth token');
+      throw const ApiException('Missing auth token');
     }
     return http.put(
       Uri.parse('$baseUrl$path'),
@@ -153,7 +161,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to fetch next review');
+      throw const ApiException('Failed to fetch next review');
     }
     return NextReviewResponse.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -174,7 +182,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to create card');
+      throw const ApiException('Failed to create card');
     }
   }
 
@@ -193,7 +201,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to update card');
+      throw const ApiException('Failed to update card');
     }
   }
 
@@ -203,7 +211,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 204) {
-      throw HttpException('Failed to delete card');
+      throw const ApiException('Failed to delete card');
     }
   }
 
@@ -213,7 +221,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to fetch cards');
+      throw const ApiException('Failed to fetch cards');
     }
     final data = jsonDecode(response.body) as List<dynamic>;
     return data
@@ -227,7 +235,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to fetch stats');
+      throw const ApiException('Failed to fetch stats');
     }
     final data = jsonDecode(response.body) as List<dynamic>;
     return data
@@ -241,7 +249,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to fetch FSRS settings');
+      throw const ApiException('Failed to fetch FSRS settings');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return FsrsSettings.fromJson(data);
@@ -253,7 +261,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to update FSRS settings');
+      throw const ApiException('Failed to update FSRS settings');
     }
   }
 
@@ -290,7 +298,7 @@ class ApiClient {
       throw UnauthorizedException();
     }
     if (response.statusCode != 200) {
-      throw HttpException('Failed to sync reviews');
+      throw const ApiException('Failed to sync reviews');
     }
   }
 
