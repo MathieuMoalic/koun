@@ -79,6 +79,7 @@ class _AddCardViewState extends State<AddCardView> {
       showDragHandle: true,
       builder: (context) => _AddCardModalSheet(
         api: widget.api,
+        existingCards: _cards,
         onUnauthorized: widget.onUnauthorized,
       ),
     );
@@ -511,10 +512,12 @@ enum CardSort { dueDate, stability, difficulty, retrievability, createdAt, updat
 
 class _AddCardModalSheet extends StatefulWidget {
   final ApiClient api;
+  final List<CardModel> existingCards;
   final Future<void> Function()? onUnauthorized;
 
   const _AddCardModalSheet({
     required this.api,
+    required this.existingCards,
     this.onUnauthorized,
   });
 
@@ -530,6 +533,13 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _frontController.addListener(_onInputChanged);
+    _backController.addListener(_onInputChanged);
+  }
+
+  @override
   void dispose() {
     _frontController.dispose();
     _backController.dispose();
@@ -537,12 +547,50 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
     super.dispose();
   }
 
+  void _onInputChanged() {
+    if (mounted) {
+      setState(() {
+        if (_error == 'Duplicate card detected.') {
+          _error = null;
+        }
+      });
+    }
+  }
+
+  String _normalize(String value) => value.trim().toLowerCase();
+
+  List<CardModel> get _frontDuplicates {
+    final front = _normalize(_frontController.text);
+    if (front.isEmpty) {
+      return const [];
+    }
+    return widget.existingCards
+        .where((card) => _normalize(card.front) == front)
+        .toList();
+  }
+
+  List<CardModel> get _backDuplicates {
+    final back = _normalize(_backController.text);
+    if (back.isEmpty) {
+      return const [];
+    }
+    return widget.existingCards
+        .where((card) => _normalize(card.back) == back)
+        .toList();
+  }
+
+  bool get _hasDuplicates => _frontDuplicates.isNotEmpty || _backDuplicates.isNotEmpty;
+
   Future<void> _save() async {
     final front = _frontController.text.trim();
     final back = _backController.text.trim();
     final hint = _hintController.text.trim();
     if (front.isEmpty || back.isEmpty) {
       setState(() => _error = 'Polish and English are required.');
+      return;
+    }
+    if (_hasDuplicates) {
+      setState(() => _error = 'Duplicate card detected.');
       return;
     }
 
@@ -607,6 +655,13 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
               decoration: const InputDecoration(labelText: 'Hint (optional)'),
             ),
             const SizedBox(height: 12),
+            if (_hasDuplicates) ...[
+              _DuplicateWarning(
+                frontMatches: _frontDuplicates,
+                backMatches: _backDuplicates,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (_error != null) ...[
               Text(
                 _error!,
@@ -615,7 +670,7 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
               const SizedBox(height: 8),
             ],
             FilledButton(
-              onPressed: _saving ? null : _save,
+              onPressed: _saving || _hasDuplicates ? null : _save,
               child: _saving
                   ? const SizedBox(
                       height: 18,
@@ -627,6 +682,88 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DuplicateWarning extends StatelessWidget {
+  final List<CardModel> frontMatches;
+  final List<CardModel> backMatches;
+
+  const _DuplicateWarning({
+    required this.frontMatches,
+    required this.backMatches,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Duplicate card found',
+              style: TextStyle(
+                color: theme.colorScheme.onErrorContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (frontMatches.isNotEmpty) ...[
+              _DuplicateSection(
+                label: 'Polish already exists',
+                cards: frontMatches,
+              ),
+              if (backMatches.isNotEmpty) const SizedBox(height: 8),
+            ],
+            if (backMatches.isNotEmpty)
+              _DuplicateSection(
+                label: 'English already exists',
+                cards: backMatches,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DuplicateSection extends StatelessWidget {
+  final String label;
+  final List<CardModel> cards;
+
+  const _DuplicateSection({
+    required this.label,
+    required this.cards,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: theme.colorScheme.onErrorContainer,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        for (final card in cards)
+          Text(
+            '• ${card.front} → ${card.back}',
+            style: TextStyle(color: theme.colorScheme.onErrorContainer),
+          ),
+      ],
     );
   }
 }
