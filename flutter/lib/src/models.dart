@@ -1,10 +1,36 @@
 enum ReviewRating { again, hard, good, easy }
 
+enum CardType { noun, verb, adjective, phrase }
+
+extension CardTypeX on CardType {
+  String get label => switch (this) {
+        CardType.noun => 'Noun',
+        CardType.verb => 'Verb',
+        CardType.adjective => 'Adjective',
+        CardType.phrase => 'Phrase',
+      };
+
+  static CardType fromJson(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'verb':
+        return CardType.verb;
+      case 'adjective':
+        return CardType.adjective;
+      case 'phrase':
+        return CardType.phrase;
+      case 'noun':
+      default:
+        return CardType.noun;
+    }
+  }
+}
+
 class CardModel {
   final int id;
   final String front;
   final String back;
   final String? hint;
+  final CardType cardType;
   final bool audioAvailable;
   final bool suspended;
   final int createdAt;
@@ -20,6 +46,7 @@ class CardModel {
     required this.front,
     required this.back,
     required this.hint,
+    required this.cardType,
     required this.audioAvailable,
     required this.suspended,
     required this.createdAt,
@@ -37,6 +64,7 @@ class CardModel {
       front: json['front'] as String,
       back: json['back'] as String,
       hint: json['hint'] as String?,
+      cardType: CardTypeX.fromJson(json['card_type'] as String?),
       audioAvailable: json['audio_available'] as bool? ?? false,
       suspended: json['suspended'] as bool? ?? false,
       createdAt: json['created_at'] as int,

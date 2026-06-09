@@ -34,6 +34,7 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
         front: String,
         back: String,
         hint: Option<String>,
+        card_type: String,
         suspended: bool,
         created_at: i64,
         updated_at: i64,
@@ -42,7 +43,7 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
 
     let next_card = sqlx::query_as::<_, CardDueRow>(
         &format!(
-            "SELECT cards.id, cards.front, cards.back, cards.hint, cards.suspended, cards.created_at, cards.updated_at,
+            "SELECT cards.id, cards.front, cards.back, cards.hint, cards.card_type, cards.suspended, cards.created_at, cards.updated_at,
                     schedule_state.fsrs_due_at as due_at
              FROM cards
              JOIN schedule_state ON schedule_state.card_id = cards.id
@@ -62,6 +63,7 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
             front: row.front,
             back: row.back,
             hint: row.hint,
+            card_type: row.card_type,
             suspended: row.suspended,
             created_at: row.created_at,
             updated_at: row.updated_at,

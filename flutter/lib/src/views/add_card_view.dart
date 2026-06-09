@@ -94,31 +94,54 @@ class _AddCardViewState extends State<AddCardView> {
     final frontController = TextEditingController(text: card.front);
     final backController = TextEditingController(text: card.back);
     final hintController = TextEditingController(text: card.hint ?? '');
+    var cardType = card.cardType;
 
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit card'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: frontController,
-                decoration: const InputDecoration(labelText: 'Polish'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: backController,
-                decoration: const InputDecoration(labelText: 'English'),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: hintController,
-                decoration: const InputDecoration(labelText: 'Hint (optional)'),
-              ),
-            ],
+        content: StatefulBuilder(
+          builder: (context, setModalState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: frontController,
+                  decoration: const InputDecoration(labelText: 'Polish'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: backController,
+                  decoration: const InputDecoration(labelText: 'English'),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: hintController,
+                  decoration:
+                      const InputDecoration(labelText: 'Hint (optional)'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<CardType>(
+                  initialValue: cardType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  isExpanded: true,
+                  items: CardType.values
+                      .map(
+                        (type) => DropdownMenuItem(
+                          value: type,
+                          child: Text(type.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setModalState(() => cardType = value);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -157,6 +180,7 @@ class _AddCardViewState extends State<AddCardView> {
         id: card.id,
         front: front,
         back: back,
+        cardType: cardType,
         hint: hint.isEmpty ? null : hint,
       );
       setState(() => _message = 'Card updated');
@@ -326,6 +350,7 @@ class _AddCardViewState extends State<AddCardView> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
+                                          _typeBadge(card.cardType),
                                           if (card.audioAvailable)
                                             _compactIconButton(
                                               icon: Icons.play_arrow,
@@ -506,6 +531,27 @@ class _AddCardViewState extends State<AddCardView> {
       splashRadius: 16,
     );
   }
+
+  Widget _typeBadge(CardType cardType) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          cardType.label,
+          style: TextStyle(
+            fontSize: 11,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 enum CardSort { dueDate, stability, difficulty, retrievability, createdAt, updatedAt }
@@ -529,6 +575,7 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
   final _frontController = TextEditingController();
   final _backController = TextEditingController();
   final _hintController = TextEditingController();
+  CardType _cardType = CardType.noun;
   bool _saving = false;
   String? _error;
 
@@ -603,6 +650,7 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
       await widget.api.createCard(
         front: front,
         back: back,
+        cardType: _cardType,
         hint: hint.isEmpty ? null : hint,
       );
       if (!mounted) {
@@ -653,6 +701,27 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
             TextField(
               controller: _hintController,
               decoration: const InputDecoration(labelText: 'Hint (optional)'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<CardType>(
+              initialValue: _cardType,
+              decoration: const InputDecoration(labelText: 'Type'),
+              isExpanded: true,
+              items: CardType.values
+                  .map(
+                    (type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(() => _cardType = value);
+                      }
+                    },
             ),
             const SizedBox(height: 12),
             if (_hasDuplicates) ...[

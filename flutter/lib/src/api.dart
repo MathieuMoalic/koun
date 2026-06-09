@@ -171,12 +171,14 @@ class ApiClient {
   Future<void> createCard({
     required String front,
     required String back,
+    required CardType cardType,
     String? hint,
   }) async {
     final response = await _authedPost('/cards', {
       'front': front,
       'back': back,
       'hint': hint,
+      'card_type': cardType.name,
     });
     if (response.statusCode == 401) {
       throw UnauthorizedException();
@@ -190,12 +192,14 @@ class ApiClient {
     required int id,
     required String front,
     required String back,
+    required CardType cardType,
     String? hint,
   }) async {
     final response = await _authedPut('/cards/$id', {
       'front': front,
       'back': back,
       'hint': hint,
+      'card_type': cardType.name,
     });
     if (response.statusCode == 401) {
       throw UnauthorizedException();

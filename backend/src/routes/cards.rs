@@ -19,6 +19,7 @@ pub struct CreateCardReq {
     pub front: String,
     pub back: String,
     pub hint: Option<String>,
+    pub card_type: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -26,8 +27,11 @@ pub struct UpdateCardReq {
     pub front: Option<String>,
     pub back: Option<String>,
     pub hint: Option<String>,
+    pub card_type: Option<String>,
     pub suspended: Option<bool>,
 }
+
+const CARD_TYPES: [&str; 4] = ["noun", "verb", "adjective", "phrase"];
 
 pub async fn list_cards(State(state): State<AppState>) -> AppResult<Json<Vec<CardListItem>>> {
     #[derive(sqlx::FromRow)]
@@ -36,6 +40,7 @@ pub async fn list_cards(State(state): State<AppState>) -> AppResult<Json<Vec<Car
         front: String,
         back: String,
         hint: Option<String>,
+        card_type: String,
         audio_path: Option<String>,
         suspended: bool,
         created_at: i64,
@@ -47,10 +52,10 @@ pub async fn list_cards(State(state): State<AppState>) -> AppResult<Json<Vec<Car
     }
 
     let rows = sqlx::query_as::<_, CardListRow>(
-        "SELECT cards.id, cards.front, cards.back, cards.hint, cards.audio_path, cards.suspended, cards.created_at, cards.updated_at,
+        "SELECT cards.id, cards.front, cards.back, cards.hint, cards.card_type, cards.audio_path, cards.suspended, cards.created_at, cards.updated_at,
                 schedule_state.fsrs_stability, schedule_state.fsrs_difficulty,
                 schedule_state.fsrs_due_at, schedule_state.fsrs_last_review_at
-         FROM cards
+          FROM cards
          JOIN schedule_state ON schedule_state.card_id = cards.id
          ORDER BY cards.created_at DESC",
     )
@@ -65,6 +70,7 @@ pub async fn list_cards(State(state): State<AppState>) -> AppResult<Json<Vec<Car
             front: row.front,
             back: row.back,
             hint: row.hint,
+            card_type: row.card_type,
             audio_available: row.audio_path.is_some(),
             suspended: row.suspended,
             created_at: row.created_at,
@@ -89,14 +95,16 @@ pub async fn create_card(
     Json(req): Json<CreateCardReq>,
 ) -> AppResult<Json<Card>> {
     let now = now_ts();
+    let card_type = normalize_card_type(req.card_type)?.unwrap_or_else(|| "noun".to_string());
     let card = sqlx::query_as::<_, Card>(
-        "INSERT INTO cards (front, back, hint, suspended, created_at, updated_at)
-         VALUES (?, ?, ?, 0, ?, ?)
-         RETURNING id, front, back, hint, suspended, created_at, updated_at",
+        "INSERT INTO cards (front, back, hint, card_type, suspended, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?)
+         RETURNING id, front, back, hint, card_type, suspended, created_at, updated_at",
     )
     .bind(req.front)
     .bind(req.back)
     .bind(req.hint)
+    .bind(card_type)
     .bind(now)
     .bind(now)
     .fetch_one(&state.pool)
@@ -149,7 +157,7 @@ pub async fn update_card(
     Json(req): Json<UpdateCardReq>,
 ) -> AppResult<Json<Card>> {
     let existing = sqlx::query_as::<_, Card>(
-        "SELECT id, front, back, hint, suspended, created_at, updated_at FROM cards WHERE id = ?",
+        "SELECT id, front, back, hint, card_type, suspended, created_at, updated_at FROM cards WHERE id = ?",
     )
     .bind(id)
     .fetch_optional(&state.pool)
@@ -159,17 +167,19 @@ pub async fn update_card(
     let front = req.front.unwrap_or(existing.front);
     let back = req.back.unwrap_or(existing.back);
     let hint = req.hint.or(existing.hint);
+    let card_type = normalize_card_type(req.card_type)?.unwrap_or(existing.card_type);
     let suspended = req.suspended.unwrap_or(existing.suspended);
     let now = now_ts();
 
     let updated = sqlx::query_as::<_, Card>(
-        "UPDATE cards SET front = ?, back = ?, hint = ?, suspended = ?, updated_at = ?
+        "UPDATE cards SET front = ?, back = ?, hint = ?, card_type = ?, suspended = ?, updated_at = ?
          WHERE id = ?
-         RETURNING id, front, back, hint, suspended, created_at, updated_at",
+         RETURNING id, front, back, hint, card_type, suspended, created_at, updated_at",
     )
     .bind(front)
     .bind(back)
     .bind(hint)
+    .bind(card_type)
     .bind(suspended)
     .bind(now)
     .bind(id)
@@ -210,6 +220,21 @@ async fn insert_schedule_state(pool: &SqlitePool, card_id: i64, now: i64) -> App
     .execute(pool)
     .await?;
     Ok(())
+}
+
+fn normalize_card_type(value: Option<String>) -> AppResult<Option<String>> {
+    let Some(card_type) = value else {
+        return Ok(None);
+    };
+
+    let normalized = card_type.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return Err(StatusCode::BAD_REQUEST.into());
+    }
+    if CARD_TYPES.contains(&normalized.as_str()) {
+        return Ok(Some(normalized));
+    }
+    Err(StatusCode::BAD_REQUEST.into())
 }
 
 #[derive(Serialize)]
