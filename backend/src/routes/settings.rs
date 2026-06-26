@@ -27,9 +27,7 @@ pub struct FsrsSettingsPayload {
     relearning_step_minutes: i64,
 }
 
-pub async fn get_fsrs_settings(
-    State(state): State<AppState>,
-) -> AppResult<Json<FsrsSettings>> {
+pub async fn get_fsrs_settings(State(state): State<AppState>) -> AppResult<Json<FsrsSettings>> {
     let row = fetch_settings(&state.pool).await?;
     Ok(Json(FsrsSettings {
         desired_retention: row.desired_retention,

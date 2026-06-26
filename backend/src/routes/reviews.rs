@@ -4,7 +4,7 @@ use sqlx::sqlite::SqliteQueryResult;
 
 use crate::error::AppResult;
 use crate::models::{
-    AppState, CardWithDue, ReviewSyncRequest, ReviewSyncResponse, ReviewRating, ScheduleState,
+    AppState, CardWithDue, ReviewRating, ReviewSyncRequest, ReviewSyncResponse, ScheduleState,
     now_ts,
 };
 use crate::routes::settings::get_fsrs_config;

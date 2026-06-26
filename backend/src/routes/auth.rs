@@ -120,5 +120,7 @@ pub async fn refresh(
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(RefreshResp { token: access_token }))
+    Ok(Json(RefreshResp {
+        token: access_token,
+    }))
 }

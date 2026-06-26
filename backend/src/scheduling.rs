@@ -40,7 +40,11 @@ pub fn apply_fsrs(
         return start_relearning(state, reviewed_at, settings);
     }
 
-    let due_at = due_from_stability(state.fsrs_stability, reviewed_at, settings.desired_retention);
+    let due_at = due_from_stability(
+        state.fsrs_stability,
+        reviewed_at,
+        settings.desired_retention,
+    );
     state.fsrs_due_at = due_at;
     due_at
 }
@@ -78,8 +82,11 @@ fn apply_learning_steps(
     settings: &FsrsConfig,
 ) -> i64 {
     if settings.learning_steps.is_empty() {
-        let due_at =
-            due_from_stability(state.fsrs_stability, reviewed_at, settings.desired_retention);
+        let due_at = due_from_stability(
+            state.fsrs_stability,
+            reviewed_at,
+            settings.desired_retention,
+        );
         state.fsrs_due_at = due_at;
         state.fsrs_learning_step = 0;
         return due_at;
@@ -95,8 +102,11 @@ fn apply_learning_steps(
 
     if step > settings.learning_steps.len() {
         state.fsrs_learning_step = 0;
-        let due_at =
-            due_from_stability(state.fsrs_stability, reviewed_at, settings.desired_retention);
+        let due_at = due_from_stability(
+            state.fsrs_stability,
+            reviewed_at,
+            settings.desired_retention,
+        );
         state.fsrs_due_at = due_at;
         return due_at;
     }
@@ -108,14 +118,13 @@ fn apply_learning_steps(
     due_at
 }
 
-fn start_relearning(
-    state: &mut ScheduleState,
-    reviewed_at: i64,
-    settings: &FsrsConfig,
-) -> i64 {
+fn start_relearning(state: &mut ScheduleState, reviewed_at: i64, settings: &FsrsConfig) -> i64 {
     if settings.relearning_steps.is_empty() {
-        let due_at =
-            due_from_stability(state.fsrs_stability, reviewed_at, settings.desired_retention);
+        let due_at = due_from_stability(
+            state.fsrs_stability,
+            reviewed_at,
+            settings.desired_retention,
+        );
         state.fsrs_due_at = due_at;
         return due_at;
     }
@@ -133,8 +142,11 @@ fn apply_relearning_steps(
     settings: &FsrsConfig,
 ) -> i64 {
     if settings.relearning_steps.is_empty() {
-        let due_at =
-            due_from_stability(state.fsrs_stability, reviewed_at, settings.desired_retention);
+        let due_at = due_from_stability(
+            state.fsrs_stability,
+            reviewed_at,
+            settings.desired_retention,
+        );
         state.fsrs_due_at = due_at;
         state.fsrs_relearning_step = 0;
         return due_at;
@@ -150,8 +162,11 @@ fn apply_relearning_steps(
 
     if step > settings.relearning_steps.len() {
         state.fsrs_relearning_step = 0;
-        let due_at =
-            due_from_stability(state.fsrs_stability, reviewed_at, settings.desired_retention);
+        let due_at = due_from_stability(
+            state.fsrs_stability,
+            reviewed_at,
+            settings.desired_retention,
+        );
         state.fsrs_due_at = due_at;
         return due_at;
     }

@@ -132,6 +132,16 @@ fn log_cli_args(command: Option<&Commands>, config: &koun::config::Config) {
     );
     tracing::info!("ElevenLabs voice ID: {}", config.elevenlabs_voice_id);
     tracing::info!("ElevenLabs model ID: {}", config.elevenlabs_model_id);
+    tracing::info!(
+        "LLM API key: {}",
+        if config.llm_api_key.is_some() {
+            "<set>"
+        } else {
+            "<not set>"
+        }
+    );
+    tracing::info!("LLM API URL: {}", config.llm_api_url);
+    tracing::info!("LLM model: {}", config.llm_model);
     tracing::info!("Audio dir: {}", config.audio_dir.display());
     tracing::info!("====================");
 }

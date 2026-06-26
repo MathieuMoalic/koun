@@ -2,6 +2,8 @@ enum ReviewRating { again, hard, good, easy }
 
 enum CardType { noun, verb, adjective, phrase }
 
+enum TranslationDirection { plToEn, enToPl }
+
 extension CardTypeX on CardType {
   String get label => switch (this) {
         CardType.noun => 'Noun',
@@ -23,6 +25,18 @@ extension CardTypeX on CardType {
         return CardType.noun;
     }
   }
+}
+
+extension TranslationDirectionX on TranslationDirection {
+  String get label => switch (this) {
+        TranslationDirection.plToEn => 'Translate to English',
+        TranslationDirection.enToPl => 'Translate to Polish',
+      };
+
+  String get apiValue => switch (this) {
+        TranslationDirection.plToEn => 'pl_to_en',
+        TranslationDirection.enToPl => 'en_to_pl',
+      };
 }
 
 class CardModel {

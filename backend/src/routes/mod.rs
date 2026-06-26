@@ -3,3 +3,4 @@ pub mod cards;
 pub mod reviews;
 pub mod settings;
 pub mod stats;
+pub mod translations;

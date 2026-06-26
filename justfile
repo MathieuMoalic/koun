@@ -31,7 +31,7 @@ backend:
 
 android:
   adb reverse tcp:8080 tcp:8080
-  cd flutter && flutter run -d <device-id>
+  cd flutter && flutter run -d CPH2465
 
 web:
   cd flutter && flutter run -d web-server --web-hostname 127.0.0.1 --web-port 5173

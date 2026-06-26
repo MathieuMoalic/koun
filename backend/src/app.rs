@@ -12,7 +12,7 @@ use crate::config::Config;
 use crate::embedded_web::serve_embedded_web;
 use crate::logging::{access_log, log_payloads};
 use crate::models::AppState;
-use crate::routes::{auth, cards, reviews, settings, stats};
+use crate::routes::{auth, cards, reviews, settings, stats, translations};
 
 async fn healthz() -> Json<&'static str> {
     Json("ok")
@@ -56,11 +56,18 @@ pub fn build_app(state: AppState) -> Router {
     let protected_routes = Router::new()
         .route("/cards", get(cards::list_cards).post(cards::create_card))
         .route("/cards/{id}/audio", get(cards::get_card_audio))
-        .route("/cards/{id}", patch(cards::update_card).delete(cards::delete_card))
+        .route(
+            "/cards/{id}",
+            patch(cards::update_card).delete(cards::delete_card),
+        )
         .route("/reviews/next", get(reviews::next_review))
         .route("/reviews/sync", post(reviews::sync_reviews))
+        .route("/translate", post(translations::translate_text))
         .route("/stats/reviews-per-day", get(stats::reviews_per_day))
-        .route("/settings/fsrs", get(settings::get_fsrs_settings).put(settings::set_fsrs_settings))
+        .route(
+            "/settings/fsrs",
+            get(settings::get_fsrs_settings).put(settings::set_fsrs_settings),
+        )
         .route_layer(from_fn_with_state(state.clone(), require_auth));
 
     Router::new()

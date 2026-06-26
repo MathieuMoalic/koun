@@ -13,6 +13,7 @@ pub mod config;
 pub mod db;
 pub mod embedded_web;
 pub mod error;
+pub mod llm;
 pub mod logging;
 pub mod models;
 pub mod routes;

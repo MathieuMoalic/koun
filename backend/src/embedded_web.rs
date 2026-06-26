@@ -16,9 +16,8 @@ pub async fn serve_embedded_web(uri: Uri) -> Response {
         let mut headers = HeaderMap::new();
         headers.insert(
             axum::http::header::CONTENT_TYPE,
-            HeaderValue::from_str(mime.as_ref()).unwrap_or_else(|_| {
-                HeaderValue::from_static("application/octet-stream")
-            }),
+            HeaderValue::from_str(mime.as_ref())
+                .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
         );
         (headers, asset.data.into_owned()).into_response()
     } else {

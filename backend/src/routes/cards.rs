@@ -256,7 +256,10 @@ async fn generate_card_audio(state: &AppState, card_id: i64, text: &str) -> AppR
     let api_key = match state.config.elevenlabs_api_key.as_ref() {
         Some(api_key) => api_key,
         None => {
-            tracing::info!(card_id, "Skipping ElevenLabs audio generation because API key is not set");
+            tracing::info!(
+                card_id,
+                "Skipping ElevenLabs audio generation because API key is not set"
+            );
             return Ok(());
         }
     };
@@ -289,11 +292,9 @@ async fn generate_card_audio(state: &AppState, card_id: i64, text: &str) -> AppR
         .await?;
 
     if !response.status().is_success() {
-        return Err(anyhow::anyhow!(
-            "ElevenLabs TTS failed with status {}",
-            response.status()
-        )
-        .into());
+        return Err(
+            anyhow::anyhow!("ElevenLabs TTS failed with status {}", response.status()).into(),
+        );
     }
 
     let bytes = response.bytes().await?;

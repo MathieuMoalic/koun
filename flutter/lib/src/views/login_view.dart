@@ -40,7 +40,7 @@ class _LoginViewState extends State<LoginView> {
         title: const Text('Server URL'),
         content: TextField(
           controller: controller,
-            decoration: const InputDecoration(hintText: 'http://localhost:8080'),
+          decoration: const InputDecoration(hintText: 'http://localhost:8080'),
         ),
         actions: [
           TextButton(
@@ -69,6 +69,12 @@ class _LoginViewState extends State<LoginView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Image.asset(
+                  'assets/logo.png',
+                  width: 120,
+                  height: 120,
+                ),
+                const SizedBox(height: 16),
                 const Text('koun', style: TextStyle(fontSize: 28)),
                 const SizedBox(height: 24),
                 TextField(
@@ -80,7 +86,8 @@ class _LoginViewState extends State<LoginView> {
                 if (_error != null)
                   Text(
                     _error!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 const SizedBox(height: 16),
                 FilledButton(

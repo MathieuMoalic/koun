@@ -57,6 +57,19 @@ pub struct Config {
     )]
     pub elevenlabs_model_id: String,
 
+    #[arg(long, env = "KOUN_LLM_API_KEY")]
+    pub llm_api_key: Option<String>,
+
+    #[arg(
+        long,
+        env = "KOUN_LLM_API_URL",
+        default_value = "https://openrouter.ai/api/v1"
+    )]
+    pub llm_api_url: String,
+
+    #[arg(long, env = "KOUN_LLM_MODEL", default_value = "openai/gpt-4o-mini")]
+    pub llm_model: String,
+
     #[arg(long, env = "KOUN_AUDIO_DIR", default_value = "card_audio")]
     pub audio_dir: PathBuf,
 }

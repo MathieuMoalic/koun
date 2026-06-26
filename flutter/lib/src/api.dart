@@ -17,6 +17,70 @@ class ApiException implements Exception {
 class UnauthorizedException extends ApiException {
   UnauthorizedException() : super('Unauthorized');
 }
+
+class NounTranslation {
+  final String polishSingular;
+  final String polishPlural;
+  final String english;
+
+  const NounTranslation({
+    required this.polishSingular,
+    required this.polishPlural,
+    required this.english,
+  });
+
+  factory NounTranslation.fromJson(Map<String, dynamic> json) {
+    return NounTranslation(
+      polishSingular: json['polish_singular'] as String? ?? '',
+      polishPlural: json['polish_plural'] as String? ?? '',
+      english: json['english'] as String? ?? '',
+    );
+  }
+}
+
+class AdjectiveTranslation {
+  final String polishMasculine;
+  final String polishFeminine;
+  final String polishNeuter;
+  final String english;
+
+  const AdjectiveTranslation({
+    required this.polishMasculine,
+    required this.polishFeminine,
+    required this.polishNeuter,
+    required this.english,
+  });
+
+  factory AdjectiveTranslation.fromJson(Map<String, dynamic> json) {
+    return AdjectiveTranslation(
+      polishMasculine: json['polish_masculine'] as String? ?? '',
+      polishFeminine: json['polish_feminine'] as String? ?? '',
+      polishNeuter: json['polish_neuter'] as String? ?? '',
+      english: json['english'] as String? ?? '',
+    );
+  }
+}
+
+class VerbTranslation {
+  final String polishImperfective;
+  final String polishPerfective;
+  final String english;
+
+  const VerbTranslation({
+    required this.polishImperfective,
+    required this.polishPerfective,
+    required this.english,
+  });
+
+  factory VerbTranslation.fromJson(Map<String, dynamic> json) {
+    return VerbTranslation(
+      polishImperfective: json['polish_imperfective'] as String? ?? '',
+      polishPerfective: json['polish_perfective'] as String? ?? '',
+      english: json['english'] as String? ?? '',
+    );
+  }
+}
+
 class ApiClient {
   static const _tokenKey = 'auth_token';
   static const _refreshTokenKey = 'refresh_token';
@@ -109,7 +173,8 @@ class ApiClient {
     });
   }
 
-  Future<http.Response> _authedPost(String path, Map<String, dynamic> body) async {
+  Future<http.Response> _authedPost(
+      String path, Map<String, dynamic> body) async {
     final baseUrl = await _baseUrl();
     final token = await _token();
     if (token == null) {
@@ -139,7 +204,8 @@ class ApiClient {
     );
   }
 
-  Future<http.Response> _authedPut(String path, Map<String, dynamic> body) async {
+  Future<http.Response> _authedPut(
+      String path, Map<String, dynamic> body) async {
     final baseUrl = await _baseUrl();
     final token = await _token();
     if (token == null) {
@@ -217,6 +283,81 @@ class ApiClient {
     if (response.statusCode != 204) {
       throw const ApiException('Failed to delete card');
     }
+  }
+
+  Future<String> translateText({
+    required String text,
+    required TranslationDirection direction,
+  }) async {
+    final response = await _authedPost('/translate', {
+      'text': text,
+      'direction': direction.apiValue,
+    });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw const ApiException('Failed to translate text');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return data['translation'] as String;
+  }
+
+  Future<NounTranslation> translateNounText({
+    required String text,
+    required TranslationDirection direction,
+  }) async {
+    final response = await _authedPost('/translate', {
+      'text': text,
+      'direction': direction.apiValue,
+      'card_type': 'noun',
+    });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw const ApiException('Failed to translate noun');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return NounTranslation.fromJson(data);
+  }
+
+  Future<AdjectiveTranslation> translateAdjectiveText({
+    required String text,
+    required TranslationDirection direction,
+  }) async {
+    final response = await _authedPost('/translate', {
+      'text': text,
+      'direction': direction.apiValue,
+      'card_type': 'adjective',
+    });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw const ApiException('Failed to translate adjective');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return AdjectiveTranslation.fromJson(data);
+  }
+
+  Future<VerbTranslation> translateVerbText({
+    required String text,
+    required TranslationDirection direction,
+  }) async {
+    final response = await _authedPost('/translate', {
+      'text': text,
+      'direction': direction.apiValue,
+      'card_type': 'verb',
+    });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw const ApiException('Failed to translate verb');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return VerbTranslation.fromJson(data);
   }
 
   Future<List<CardModel>> listCards() async {
@@ -315,9 +456,7 @@ class ApiClient {
   Future<List<Map<String, dynamic>>> _loadQueue() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_reviewQueueKey) ?? [];
-    return raw
-        .map((item) => jsonDecode(item) as Map<String, dynamic>)
-        .toList();
+    return raw.map((item) => jsonDecode(item) as Map<String, dynamic>).toList();
   }
 
   Future<void> _saveQueue(List<Map<String, dynamic>> queue) async {
