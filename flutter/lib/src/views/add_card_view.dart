@@ -304,6 +304,12 @@ class _AddCardViewState extends State<AddCardView> {
     final adjectivePolishNeuterController =
         TextEditingController(text: adjectiveSplit.neuter);
     final adjectiveEnglishController = TextEditingController(text: card.back);
+    final verbSplit = _splitVerbFront(card.front);
+    final verbPolishImperfectiveController =
+        TextEditingController(text: verbSplit.imperfective);
+    final verbPolishPerfectiveController =
+        TextEditingController(text: verbSplit.perfective);
+    final verbEnglishController = TextEditingController(text: card.back);
     var cardType = card.cardType;
     var translatingToEnglish = false;
     var translatingToPolish = false;
@@ -315,8 +321,9 @@ class _AddCardViewState extends State<AddCardView> {
         title: const Text('Edit card'),
         content: StatefulBuilder(
           builder: (context, setModalState) {
-            final isNoun = cardType == CardType.noun;
-            final isAdjective = cardType == CardType.adjective;
+final isNoun = cardType == CardType.noun;
+    final isAdjective = cardType == CardType.adjective;
+    final isVerb = cardType == CardType.verb;
 
             Future<void> translate({
               required TranslationDirection direction,
@@ -339,7 +346,16 @@ class _AddCardViewState extends State<AddCardView> {
                             polishNeuter: adjectivePolishNeuterController.text,
                             english: adjectiveEnglishController.text,
                           )
-                        : frontController.text.trim(),
+                        : isVerb
+                            ? _verbSourceText(
+                                direction: direction,
+                                polishImperfective:
+                                    verbPolishImperfectiveController.text,
+                                polishPerfective:
+                                    verbPolishPerfectiveController.text,
+                                english: verbEnglishController.text,
+                              )
+                            : frontController.text.trim(),
                 TranslationDirection.enToPl => isNoun
                     ? _nounSourceText(
                         direction: direction,
@@ -357,7 +373,16 @@ class _AddCardViewState extends State<AddCardView> {
                             polishNeuter: adjectivePolishNeuterController.text,
                             english: adjectiveEnglishController.text,
                           )
-                        : backController.text.trim(),
+                        : isVerb
+                            ? _verbSourceText(
+                                direction: direction,
+                                polishImperfective:
+                                    verbPolishImperfectiveController.text,
+                                polishPerfective:
+                                    verbPolishPerfectiveController.text,
+                                english: verbEnglishController.text,
+                              )
+                            : backController.text.trim(),
               };
               if (sourceText.isEmpty) {
                 setModalState(() {
@@ -389,7 +414,13 @@ class _AddCardViewState extends State<AddCardView> {
                         direction: direction,
                       )
                     : null;
-                final translation = isNoun || isAdjective
+                final verbTranslation = isVerb
+                    ? await widget.api.translateVerbText(
+                        text: sourceText,
+                        direction: direction,
+                      )
+                    : null;
+                final translation = isNoun || isAdjective || isVerb
                     ? null
                     : await widget.api.translateText(
                         text: sourceText,
@@ -415,6 +446,14 @@ class _AddCardViewState extends State<AddCardView> {
                           adjectivePolishFeminineController,
                       polishNeuterController: adjectivePolishNeuterController,
                       englishController: adjectiveEnglishController,
+                    );
+                  } else if (isVerb) {
+                    _applyVerbTranslation(
+                      translation: verbTranslation!,
+                      polishImperfectiveController:
+                          verbPolishImperfectiveController,
+                      polishPerfectiveController: verbPolishPerfectiveController,
+                      englishController: verbEnglishController,
                     );
                   } else if (direction == TranslationDirection.plToEn) {
                     backController.text = translation!;
@@ -613,6 +652,72 @@ class _AddCardViewState extends State<AddCardView> {
                         hintText: 'e.g. good',
                       ),
                     ),
+                  ] else if (isVerb) ...[
+                    TextField(
+                      controller: verbPolishImperfectiveController,
+                      decoration: const InputDecoration(
+                        labelText: 'Polish imperfective',
+                        hintText: 'e.g. czytać',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: verbPolishPerfectiveController,
+                      decoration: const InputDecoration(
+                        labelText: 'Polish perfective',
+                        hintText: 'e.g. przeczytać',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: translatingToEnglish
+                                ? null
+                                : () => translate(
+                                      direction: TranslationDirection.plToEn,
+                                    ),
+                            icon: translatingToEnglish
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.arrow_downward),
+                            tooltip: 'Translate Polish to English',
+                          ),
+                          IconButton(
+                            onPressed: translatingToPolish
+                                ? null
+                                : () => translate(
+                                      direction: TranslationDirection.enToPl,
+                                    ),
+                            icon: translatingToPolish
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.arrow_upward),
+                            tooltip: 'Translate English to Polish',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: verbEnglishController,
+                      decoration: const InputDecoration(
+                        labelText: 'English verb',
+                        hintText: 'e.g. read',
+                      ),
+                    ),
                   ] else ...[
                     TextField(
                       controller: frontController,
@@ -710,6 +815,9 @@ class _AddCardViewState extends State<AddCardView> {
       adjectivePolishFeminineController.dispose();
       adjectivePolishNeuterController.dispose();
       adjectiveEnglishController.dispose();
+      verbPolishImperfectiveController.dispose();
+      verbPolishPerfectiveController.dispose();
+      verbEnglishController.dispose();
       return;
     }
 
@@ -723,11 +831,16 @@ class _AddCardViewState extends State<AddCardView> {
           adjectivePolishFeminineController.text,
           adjectivePolishNeuterController.text,
         ),
+      CardType.verb => _joinVerbFront(
+          verbPolishImperfectiveController.text,
+          verbPolishPerfectiveController.text,
+        ),
       _ => frontController.text.trim(),
     };
     final back = switch (cardType) {
       CardType.noun => nounEnglishController.text.trim(),
       CardType.adjective => adjectiveEnglishController.text.trim(),
+      CardType.verb => verbEnglishController.text.trim(),
       _ => backController.text.trim(),
     };
     final hint = hintController.text.trim();
@@ -743,6 +856,9 @@ class _AddCardViewState extends State<AddCardView> {
       adjectivePolishFeminineController.dispose();
       adjectivePolishNeuterController.dispose();
       adjectiveEnglishController.dispose();
+      verbPolishImperfectiveController.dispose();
+      verbPolishPerfectiveController.dispose();
+      verbEnglishController.dispose();
       return;
     }
 
@@ -772,6 +888,9 @@ class _AddCardViewState extends State<AddCardView> {
       adjectivePolishFeminineController.dispose();
       adjectivePolishNeuterController.dispose();
       adjectiveEnglishController.dispose();
+      verbPolishImperfectiveController.dispose();
+      verbPolishPerfectiveController.dispose();
+      verbEnglishController.dispose();
     }
   }
 
@@ -1171,6 +1290,9 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
   final _adjectivePolishFeminineController = TextEditingController();
   final _adjectivePolishNeuterController = TextEditingController();
   final _adjectiveEnglishController = TextEditingController();
+  final _verbPolishImperfectiveController = TextEditingController();
+  final _verbPolishPerfectiveController = TextEditingController();
+  final _verbEnglishController = TextEditingController();
   late CardType _cardType;
   bool _saving = false;
   bool _translatingToEnglish = false;
@@ -1190,6 +1312,9 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
     _adjectivePolishFeminineController.addListener(_onInputChanged);
     _adjectivePolishNeuterController.addListener(_onInputChanged);
     _adjectiveEnglishController.addListener(_onInputChanged);
+    _verbPolishImperfectiveController.addListener(_onInputChanged);
+    _verbPolishPerfectiveController.addListener(_onInputChanged);
+    _verbEnglishController.addListener(_onInputChanged);
   }
 
   @override
@@ -1204,6 +1329,9 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
     _adjectivePolishFeminineController.dispose();
     _adjectivePolishNeuterController.dispose();
     _adjectiveEnglishController.dispose();
+    _verbPolishImperfectiveController.dispose();
+    _verbPolishPerfectiveController.dispose();
+    _verbEnglishController.dispose();
     super.dispose();
   }
 
@@ -1244,6 +1372,7 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
 
   bool get _isNoun => _cardType == CardType.noun;
   bool get _isAdjective => _cardType == CardType.adjective;
+  bool get _isVerb => _cardType == CardType.verb;
 
   String _joinNounFront(String singular, String plural) {
     final cleanSingular = singular.trim();
@@ -1265,13 +1394,20 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
               _adjectivePolishFeminineController.text,
               _adjectivePolishNeuterController.text,
             )
-          : _frontController.text.trim();
+          : _isVerb
+              ? _joinVerbFront(
+                  _verbPolishImperfectiveController.text,
+                  _verbPolishPerfectiveController.text,
+                )
+              : _frontController.text.trim();
 
   String get _backValue => _isNoun
       ? _nounEnglishController.text.trim()
       : _isAdjective
           ? _adjectiveEnglishController.text.trim()
-          : _backController.text.trim();
+          : _isVerb
+              ? _verbEnglishController.text.trim()
+              : _backController.text.trim();
 
   Future<void> _translate({
     required TranslationDirection direction,
@@ -1296,7 +1432,15 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
                   polishNeuter: _adjectivePolishNeuterController.text,
                   english: _adjectiveEnglishController.text,
                 )
-              : _frontController.text.trim(),
+              : _isVerb
+                  ? _verbSourceText(
+                      direction: direction,
+                      polishImperfective:
+                          _verbPolishImperfectiveController.text,
+                      polishPerfective: _verbPolishPerfectiveController.text,
+                      english: _verbEnglishController.text,
+                    )
+                  : _frontController.text.trim(),
       TranslationDirection.enToPl => _isNoun
           ? _nounSourceText(
               direction: direction,
@@ -1312,7 +1456,15 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
                   polishNeuter: _adjectivePolishNeuterController.text,
                   english: _adjectiveEnglishController.text,
                 )
-              : _backController.text.trim(),
+              : _isVerb
+                  ? _verbSourceText(
+                      direction: direction,
+                      polishImperfective:
+                          _verbPolishImperfectiveController.text,
+                      polishPerfective: _verbPolishPerfectiveController.text,
+                      english: _verbEnglishController.text,
+                    )
+                  : _backController.text.trim(),
     };
     if (sourceText.isEmpty) {
       setState(() {
@@ -1345,7 +1497,13 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
               direction: direction,
             )
           : null;
-      final translation = _isNoun || _isAdjective
+      final verbTranslation = _isVerb
+          ? await widget.api.translateVerbText(
+              text: sourceText,
+              direction: direction,
+            )
+          : null;
+      final translation = _isNoun || _isAdjective || _isVerb
           ? null
           : await widget.api.translateText(
               text: sourceText,
@@ -1369,6 +1527,13 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
             polishFeminineController: _adjectivePolishFeminineController,
             polishNeuterController: _adjectivePolishNeuterController,
             englishController: _adjectiveEnglishController,
+          );
+        } else if (_isVerb) {
+          _applyVerbTranslation(
+            translation: verbTranslation!,
+            polishImperfectiveController: _verbPolishImperfectiveController,
+            polishPerfectiveController: _verbPolishPerfectiveController,
+            englishController: _verbEnglishController,
           );
         } else if (direction == TranslationDirection.plToEn) {
           _backController.text = translation!;
@@ -1611,6 +1776,69 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
                 decoration: const InputDecoration(
                   labelText: 'English adjective',
                   hintText: 'e.g. good',
+                ),
+                maxLines: 1,
+              ),
+            ] else if (_isVerb) ...[
+              TextField(
+                controller: _verbPolishImperfectiveController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish imperfective',
+                  hintText: 'e.g. czytać',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _verbPolishPerfectiveController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish perfective',
+                  hintText: 'e.g. przeczytać',
+                ),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _saving || _translatingToEnglish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.plToEn,
+                              ),
+                      icon: _translatingToEnglish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_downward),
+                      tooltip: 'Translate Polish to English',
+                    ),
+                    IconButton(
+                      onPressed: _saving || _translatingToPolish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.enToPl,
+                              ),
+                      icon: _translatingToPolish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_upward),
+                      tooltip: 'Translate English to Polish',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _verbEnglishController,
+                decoration: const InputDecoration(
+                  labelText: 'English verb',
+                  hintText: 'e.g. read',
                 ),
                 maxLines: 1,
               ),
