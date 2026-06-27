@@ -175,6 +175,7 @@ class ApiClient {
       final refreshed = await _refreshToken();
       if (!refreshed) throw UnauthorizedException();
       final newToken = await _token();
+      if (newToken == null) throw UnauthorizedException();
       return http.get(Uri.parse('$baseUrl$path'), headers: {
         'Authorization': 'Bearer $newToken',
       });
@@ -201,6 +202,7 @@ class ApiClient {
       final refreshed = await _refreshToken();
       if (!refreshed) throw UnauthorizedException();
       final newToken = await _token();
+      if (newToken == null) throw UnauthorizedException();
       return http.post(
         Uri.parse('$baseUrl$path'),
         headers: {
@@ -229,6 +231,7 @@ class ApiClient {
       final refreshed = await _refreshToken();
       if (!refreshed) throw UnauthorizedException();
       final newToken = await _token();
+      if (newToken == null) throw UnauthorizedException();
       return http.delete(
         Uri.parse('$baseUrl$path'),
         headers: {
@@ -258,6 +261,7 @@ class ApiClient {
       final refreshed = await _refreshToken();
       if (!refreshed) throw UnauthorizedException();
       final newToken = await _token();
+      if (newToken == null) throw UnauthorizedException();
       return http.put(
         Uri.parse('$baseUrl$path'),
         headers: {
