@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::AppResult;
 use crate::models::{AppState, Claims, TokenType};
 
-const ACCESS_TOKEN_EXPIRY_SECS: u64 = 15 * 60;
-const REFRESH_TOKEN_EXPIRY_SECS: u64 = 30 * 24 * 3600;
+const ACCESS_TOKEN_EXPIRY_SECS: u64 = 365 * 24 * 3600;
+const REFRESH_TOKEN_EXPIRY_SECS: u64 = 365 * 24 * 3600;
 
 #[derive(Deserialize)]
 pub struct LoginReq {

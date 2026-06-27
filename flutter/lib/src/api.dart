@@ -168,9 +168,18 @@ class ApiClient {
     if (token == null) {
       throw const ApiException('Missing auth token');
     }
-    return http.get(Uri.parse('$baseUrl$path'), headers: {
+    final response = await http.get(Uri.parse('$baseUrl$path'), headers: {
       'Authorization': 'Bearer $token',
     });
+    if (response.statusCode == 401) {
+      final refreshed = await _refreshToken();
+      if (!refreshed) throw UnauthorizedException();
+      final newToken = await _token();
+      return http.get(Uri.parse('$baseUrl$path'), headers: {
+        'Authorization': 'Bearer $newToken',
+      });
+    }
+    return response;
   }
 
   Future<http.Response> _authedPost(
@@ -180,7 +189,7 @@ class ApiClient {
     if (token == null) {
       throw const ApiException('Missing auth token');
     }
-    return http.post(
+    final response = await http.post(
       Uri.parse('$baseUrl$path'),
       headers: {
         'Content-Type': 'application/json',
@@ -188,6 +197,20 @@ class ApiClient {
       },
       body: jsonEncode(body),
     );
+    if (response.statusCode == 401) {
+      final refreshed = await _refreshToken();
+      if (!refreshed) throw UnauthorizedException();
+      final newToken = await _token();
+      return http.post(
+        Uri.parse('$baseUrl$path'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $newToken',
+        },
+        body: jsonEncode(body),
+      );
+    }
+    return response;
   }
 
   Future<http.Response> _authedDelete(String path) async {
@@ -196,12 +219,24 @@ class ApiClient {
     if (token == null) {
       throw const ApiException('Missing auth token');
     }
-    return http.delete(
+    final response = await http.delete(
       Uri.parse('$baseUrl$path'),
       headers: {
         'Authorization': 'Bearer $token',
       },
     );
+    if (response.statusCode == 401) {
+      final refreshed = await _refreshToken();
+      if (!refreshed) throw UnauthorizedException();
+      final newToken = await _token();
+      return http.delete(
+        Uri.parse('$baseUrl$path'),
+        headers: {
+          'Authorization': 'Bearer $newToken',
+        },
+      );
+    }
+    return response;
   }
 
   Future<http.Response> _authedPut(
@@ -211,7 +246,7 @@ class ApiClient {
     if (token == null) {
       throw const ApiException('Missing auth token');
     }
-    return http.put(
+    final response = await http.put(
       Uri.parse('$baseUrl$path'),
       headers: {
         'Content-Type': 'application/json',
@@ -219,6 +254,45 @@ class ApiClient {
       },
       body: jsonEncode(body),
     );
+    if (response.statusCode == 401) {
+      final refreshed = await _refreshToken();
+      if (!refreshed) throw UnauthorizedException();
+      final newToken = await _token();
+      return http.put(
+        Uri.parse('$baseUrl$path'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $newToken',
+        },
+        body: jsonEncode(body),
+      );
+    }
+    return response;
+  }
+
+  Future<bool> _refreshToken() async {
+    final baseUrl = await _baseUrl();
+    final refreshToken = await _refreshTokenValue();
+    if (refreshToken == null) return false;
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': refreshToken}),
+      );
+      if (response.statusCode != 200) return false;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, data['token'] as String);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> _refreshTokenValue() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
   }
 
   Future<NextReviewResponse> fetchNextReview() async {
