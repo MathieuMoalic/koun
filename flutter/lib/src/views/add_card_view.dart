@@ -287,578 +287,26 @@ class _AddCardViewState extends State<AddCardView> {
   }
 
   Future<void> _editCard(CardModel card) async {
-    final frontController = TextEditingController(text: card.front);
-    final backController = TextEditingController(text: card.back);
-    final hintController = TextEditingController(text: card.hint ?? '');
-    final nounSplit = _splitNounFront(card.front);
-    final nounPolishSingularController =
-        TextEditingController(text: nounSplit.singular);
-    final nounPolishPluralController =
-        TextEditingController(text: nounSplit.plural);
-    final nounEnglishController = TextEditingController(text: card.back);
-    final adjectiveSplit = _splitAdjectiveFront(card.front);
-    final adjectivePolishMasculineController =
-        TextEditingController(text: adjectiveSplit.masculine);
-    final adjectivePolishFeminineController =
-        TextEditingController(text: adjectiveSplit.feminine);
-    final adjectivePolishNeuterController =
-        TextEditingController(text: adjectiveSplit.neuter);
-    final adjectiveEnglishController = TextEditingController(text: card.back);
-    final verbSplit = _splitVerbFront(card.front);
-    final verbPolishImperfectiveController =
-        TextEditingController(text: verbSplit.imperfective);
-    final verbPolishPerfectiveController =
-        TextEditingController(text: verbSplit.perfective);
-    final verbEnglishController = TextEditingController(text: card.back);
-    var cardType = card.cardType;
-    var translatingToEnglish = false;
-    var translatingToPolish = false;
-    String? dialogError;
-
-    final shouldSave = await showDialog<bool>(
+    final result = await showDialog<_EditCardResult>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit card'),
-        content: StatefulBuilder(
-          builder: (context, setModalState) {
-final isNoun = cardType == CardType.noun;
-    final isAdjective = cardType == CardType.adjective;
-    final isVerb = cardType == CardType.verb;
-
-            Future<void> translate({
-              required TranslationDirection direction,
-            }) async {
-              final sourceText = switch (direction) {
-                TranslationDirection.plToEn => isNoun
-                    ? _nounSourceText(
-                        direction: direction,
-                        polishSingular: nounPolishSingularController.text,
-                        polishPlural: nounPolishPluralController.text,
-                        english: nounEnglishController.text,
-                      )
-                    : isAdjective
-                        ? _adjectiveSourceText(
-                            direction: direction,
-                            polishMasculine:
-                                adjectivePolishMasculineController.text,
-                            polishFeminine:
-                                adjectivePolishFeminineController.text,
-                            polishNeuter: adjectivePolishNeuterController.text,
-                            english: adjectiveEnglishController.text,
-                          )
-                        : isVerb
-                            ? _verbSourceText(
-                                direction: direction,
-                                polishImperfective:
-                                    verbPolishImperfectiveController.text,
-                                polishPerfective:
-                                    verbPolishPerfectiveController.text,
-                                english: verbEnglishController.text,
-                              )
-                            : frontController.text.trim(),
-                TranslationDirection.enToPl => isNoun
-                    ? _nounSourceText(
-                        direction: direction,
-                        polishSingular: nounPolishSingularController.text,
-                        polishPlural: nounPolishPluralController.text,
-                        english: nounEnglishController.text,
-                      )
-                    : isAdjective
-                        ? _adjectiveSourceText(
-                            direction: direction,
-                            polishMasculine:
-                                adjectivePolishMasculineController.text,
-                            polishFeminine:
-                                adjectivePolishFeminineController.text,
-                            polishNeuter: adjectivePolishNeuterController.text,
-                            english: adjectiveEnglishController.text,
-                          )
-                        : isVerb
-                            ? _verbSourceText(
-                                direction: direction,
-                                polishImperfective:
-                                    verbPolishImperfectiveController.text,
-                                polishPerfective:
-                                    verbPolishPerfectiveController.text,
-                                english: verbEnglishController.text,
-                              )
-                            : backController.text.trim(),
-              };
-              if (sourceText.isEmpty) {
-                setModalState(() {
-                  dialogError = direction == TranslationDirection.plToEn
-                      ? 'Add Polish text first.'
-                      : 'Add English text first.';
-                });
-                return;
-              }
-
-              setModalState(() {
-                if (direction == TranslationDirection.plToEn) {
-                  translatingToEnglish = true;
-                } else {
-                  translatingToPolish = true;
-                }
-              });
-
-              try {
-                final nounTranslation = isNoun
-                    ? await widget.api.translateNounText(
-                        text: sourceText,
-                        direction: direction,
-                      )
-                    : null;
-                final adjectiveTranslation = isAdjective
-                    ? await widget.api.translateAdjectiveText(
-                        text: sourceText,
-                        direction: direction,
-                      )
-                    : null;
-                final verbTranslation = isVerb
-                    ? await widget.api.translateVerbText(
-                        text: sourceText,
-                        direction: direction,
-                      )
-                    : null;
-                final translation = isNoun || isAdjective || isVerb
-                    ? null
-                    : await widget.api.translateText(
-                        text: sourceText,
-                        direction: direction,
-                      );
-                if (!mounted) {
-                  return;
-                }
-                setModalState(() {
-                  if (isNoun) {
-                    _applyNounTranslation(
-                      translation: nounTranslation!,
-                      polishSingularController: nounPolishSingularController,
-                      polishPluralController: nounPolishPluralController,
-                      englishController: nounEnglishController,
-                    );
-                  } else if (isAdjective) {
-                    _applyAdjectiveTranslation(
-                      translation: adjectiveTranslation!,
-                      polishMasculineController:
-                          adjectivePolishMasculineController,
-                      polishFeminineController:
-                          adjectivePolishFeminineController,
-                      polishNeuterController: adjectivePolishNeuterController,
-                      englishController: adjectiveEnglishController,
-                    );
-                  } else if (isVerb) {
-                    _applyVerbTranslation(
-                      translation: verbTranslation!,
-                      polishImperfectiveController:
-                          verbPolishImperfectiveController,
-                      polishPerfectiveController: verbPolishPerfectiveController,
-                      englishController: verbEnglishController,
-                    );
-                  } else if (direction == TranslationDirection.plToEn) {
-                    backController.text = translation!;
-                  } else {
-                    frontController.text = translation!;
-                  }
-                  dialogError = null;
-                });
-              } on UnauthorizedException {
-                if (!mounted) {
-                  return;
-                }
-                setState(
-                    () => _message = 'Session expired. Please log in again.');
-                await widget.onUnauthorized?.call();
-              } catch (_) {
-                if (!mounted) {
-                  return;
-                }
-                setModalState(() {
-                  dialogError = 'Failed to translate';
-                });
-              } finally {
-                if (mounted) {
-                  setModalState(() {
-                    if (direction == TranslationDirection.plToEn) {
-                      translatingToEnglish = false;
-                    } else {
-                      translatingToPolish = false;
-                    }
-                  });
-                }
-              }
-            }
-
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<CardType>(
-                    initialValue: cardType,
-                    decoration: const InputDecoration(labelText: 'Type'),
-                    isExpanded: true,
-                    items: CardType.values
-                        .map(
-                          (type) => DropdownMenuItem(
-                            value: type,
-                            child: Text(type.label),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setModalState(() => cardType = value);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (isNoun) ...[
-                    TextField(
-                      controller: nounPolishSingularController,
-                      decoration: const InputDecoration(
-                        labelText: 'Polish singular',
-                        hintText: 'e.g. ten dom',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: nounPolishPluralController,
-                      decoration: const InputDecoration(
-                        labelText: 'Polish plural',
-                        hintText: 'e.g. te domy',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: translatingToEnglish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.plToEn,
-                                    ),
-                            icon: translatingToEnglish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_downward),
-                            tooltip: 'Translate Polish to English',
-                          ),
-                          IconButton(
-                            onPressed: translatingToPolish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.enToPl,
-                                    ),
-                            icon: translatingToPolish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_upward),
-                            tooltip: 'Translate English to Polish',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: nounEnglishController,
-                      decoration: const InputDecoration(
-                        labelText: 'English singular',
-                        hintText: 'e.g. house',
-                      ),
-                    ),
-                  ] else if (isAdjective) ...[
-                    TextField(
-                      controller: adjectivePolishMasculineController,
-                      decoration: const InputDecoration(
-                        labelText: 'Polish masculine',
-                        hintText: 'e.g. dobry',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: adjectivePolishFeminineController,
-                      decoration: const InputDecoration(
-                        labelText: 'Polish feminine',
-                        hintText: 'e.g. dobra',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: adjectivePolishNeuterController,
-                      decoration: const InputDecoration(
-                        labelText: 'Polish neuter',
-                        hintText: 'e.g. dobre',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: translatingToEnglish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.plToEn,
-                                    ),
-                            icon: translatingToEnglish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_downward),
-                            tooltip: 'Translate Polish to English',
-                          ),
-                          IconButton(
-                            onPressed: translatingToPolish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.enToPl,
-                                    ),
-                            icon: translatingToPolish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_upward),
-                            tooltip: 'Translate English to Polish',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: adjectiveEnglishController,
-                      decoration: const InputDecoration(
-                        labelText: 'English adjective',
-                        hintText: 'e.g. good',
-                      ),
-                    ),
-                  ] else if (isVerb) ...[
-                    TextField(
-                      controller: verbPolishImperfectiveController,
-                      decoration: const InputDecoration(
-                        labelText: 'Polish imperfective',
-                        hintText: 'e.g. czytać',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: verbPolishPerfectiveController,
-                      decoration: const InputDecoration(
-                        labelText: 'Polish perfective',
-                        hintText: 'e.g. przeczytać',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: translatingToEnglish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.plToEn,
-                                    ),
-                            icon: translatingToEnglish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_downward),
-                            tooltip: 'Translate Polish to English',
-                          ),
-                          IconButton(
-                            onPressed: translatingToPolish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.enToPl,
-                                    ),
-                            icon: translatingToPolish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_upward),
-                            tooltip: 'Translate English to Polish',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: verbEnglishController,
-                      decoration: const InputDecoration(
-                        labelText: 'English verb',
-                        hintText: 'e.g. read',
-                      ),
-                    ),
-                  ] else ...[
-                    TextField(
-                      controller: frontController,
-                      decoration: const InputDecoration(labelText: 'Polish'),
-                    ),
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: translatingToEnglish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.plToEn,
-                                    ),
-                            icon: translatingToEnglish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_downward),
-                            tooltip: 'Translate Polish to English',
-                          ),
-                          IconButton(
-                            onPressed: translatingToPolish
-                                ? null
-                                : () => translate(
-                                      direction: TranslationDirection.enToPl,
-                                    ),
-                            icon: translatingToPolish
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.arrow_upward),
-                            tooltip: 'Translate English to Polish',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: backController,
-                      decoration: const InputDecoration(labelText: 'English'),
-                      maxLines: 3,
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  if (dialogError != null) ...[
-                    Text(
-                      dialogError!,
-                      style:
-                          TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  TextField(
-                    controller: hintController,
-                    decoration:
-                        const InputDecoration(labelText: 'Hint (optional)'),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (context) => _EditCardDialog(
+        api: widget.api,
+        card: card,
+        onUnauthorized: widget.onUnauthorized,
       ),
     );
 
-    if (shouldSave != true) {
-      frontController.dispose();
-      backController.dispose();
-      hintController.dispose();
-      nounPolishSingularController.dispose();
-      nounPolishPluralController.dispose();
-      nounEnglishController.dispose();
-      adjectivePolishMasculineController.dispose();
-      adjectivePolishFeminineController.dispose();
-      adjectivePolishNeuterController.dispose();
-      adjectiveEnglishController.dispose();
-      verbPolishImperfectiveController.dispose();
-      verbPolishPerfectiveController.dispose();
-      verbEnglishController.dispose();
+    if (result == null || !result.shouldSave) {
       return;
     }
 
-    final front = switch (cardType) {
-      CardType.noun => _joinNounFront(
-          nounPolishSingularController.text,
-          nounPolishPluralController.text,
-        ),
-      CardType.adjective => _joinAdjectiveFront(
-          adjectivePolishMasculineController.text,
-          adjectivePolishFeminineController.text,
-          adjectivePolishNeuterController.text,
-        ),
-      CardType.verb => _joinVerbFront(
-          verbPolishImperfectiveController.text,
-          verbPolishPerfectiveController.text,
-        ),
-      _ => frontController.text.trim(),
-    };
-    final back = switch (cardType) {
-      CardType.noun => nounEnglishController.text.trim(),
-      CardType.adjective => adjectiveEnglishController.text.trim(),
-      CardType.verb => verbEnglishController.text.trim(),
-      _ => backController.text.trim(),
-    };
-    final hint = hintController.text.trim();
+    final front = result.front;
+    final back = result.back;
+    final hint = result.hint;
+    final cardType = result.cardType;
+
     if (front.isEmpty || back.isEmpty) {
       setState(() => _message = 'Polish and English are required.');
-      frontController.dispose();
-      backController.dispose();
-      hintController.dispose();
-      nounPolishSingularController.dispose();
-      nounPolishPluralController.dispose();
-      nounEnglishController.dispose();
-      adjectivePolishMasculineController.dispose();
-      adjectivePolishFeminineController.dispose();
-      adjectivePolishNeuterController.dispose();
-      adjectiveEnglishController.dispose();
-      verbPolishImperfectiveController.dispose();
-      verbPolishPerfectiveController.dispose();
-      verbEnglishController.dispose();
       return;
     }
 
@@ -877,20 +325,6 @@ final isNoun = cardType == CardType.noun;
       await widget.onUnauthorized?.call();
     } catch (_) {
       setState(() => _message = 'Failed to update card');
-    } finally {
-      frontController.dispose();
-      backController.dispose();
-      hintController.dispose();
-      nounPolishSingularController.dispose();
-      nounPolishPluralController.dispose();
-      nounEnglishController.dispose();
-      adjectivePolishMasculineController.dispose();
-      adjectivePolishFeminineController.dispose();
-      adjectivePolishNeuterController.dispose();
-      adjectiveEnglishController.dispose();
-      verbPolishImperfectiveController.dispose();
-      verbPolishPerfectiveController.dispose();
-      verbEnglishController.dispose();
     }
   }
 
@@ -2009,4 +1443,594 @@ class _DuplicateSection extends StatelessWidget {
       ],
     );
   }
+}
+
+class _EditCardDialog extends StatefulWidget {
+  final ApiClient api;
+  final CardModel card;
+  final Future<void> Function()? onUnauthorized;
+
+  const _EditCardDialog({
+    required this.api,
+    required this.card,
+    this.onUnauthorized,
+  });
+
+  @override
+  State<_EditCardDialog> createState() => _EditCardDialogState();
+}
+
+class _EditCardDialogState extends State<_EditCardDialog> {
+  late final TextEditingController _frontController;
+  late final TextEditingController _backController;
+  late final TextEditingController _hintController;
+  late final TextEditingController _nounPolishSingularController;
+  late final TextEditingController _nounPolishPluralController;
+  late final TextEditingController _nounEnglishController;
+  late final TextEditingController _adjectivePolishMasculineController;
+  late final TextEditingController _adjectivePolishFeminineController;
+  late final TextEditingController _adjectivePolishNeuterController;
+  late final TextEditingController _adjectiveEnglishController;
+  late final TextEditingController _verbPolishImperfectiveController;
+  late final TextEditingController _verbPolishPerfectiveController;
+  late final TextEditingController _verbEnglishController;
+
+  late CardType _cardType;
+  bool _translatingToEnglish = false;
+  bool _translatingToPolish = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _cardType = widget.card.cardType;
+    _frontController = TextEditingController(text: widget.card.front);
+    _backController = TextEditingController(text: widget.card.back);
+    _hintController = TextEditingController(text: widget.card.hint ?? '');
+    final nounSplit = _splitNounFront(widget.card.front);
+    _nounPolishSingularController =
+        TextEditingController(text: nounSplit.singular);
+    _nounPolishPluralController =
+        TextEditingController(text: nounSplit.plural);
+    _nounEnglishController = TextEditingController(text: widget.card.back);
+    final adjectiveSplit = _splitAdjectiveFront(widget.card.front);
+    _adjectivePolishMasculineController =
+        TextEditingController(text: adjectiveSplit.masculine);
+    _adjectivePolishFeminineController =
+        TextEditingController(text: adjectiveSplit.feminine);
+    _adjectivePolishNeuterController =
+        TextEditingController(text: adjectiveSplit.neuter);
+    _adjectiveEnglishController = TextEditingController(text: widget.card.back);
+    final verbSplit = _splitVerbFront(widget.card.front);
+    _verbPolishImperfectiveController =
+        TextEditingController(text: verbSplit.imperfective);
+    _verbPolishPerfectiveController =
+        TextEditingController(text: verbSplit.perfective);
+    _verbEnglishController = TextEditingController(text: widget.card.back);
+  }
+
+  @override
+  void dispose() {
+    _frontController.dispose();
+    _backController.dispose();
+    _hintController.dispose();
+    _nounPolishSingularController.dispose();
+    _nounPolishPluralController.dispose();
+    _nounEnglishController.dispose();
+    _adjectivePolishMasculineController.dispose();
+    _adjectivePolishFeminineController.dispose();
+    _adjectivePolishNeuterController.dispose();
+    _adjectiveEnglishController.dispose();
+    _verbPolishImperfectiveController.dispose();
+    _verbPolishPerfectiveController.dispose();
+    _verbEnglishController.dispose();
+    super.dispose();
+  }
+
+  bool get _isNoun => _cardType == CardType.noun;
+  bool get _isAdjective => _cardType == CardType.adjective;
+  bool get _isVerb => _cardType == CardType.verb;
+
+  Future<void> _translate({
+    required TranslationDirection direction,
+  }) async {
+    final sourceText = switch (direction) {
+      TranslationDirection.plToEn => _isNoun
+          ? _nounSourceText(
+              direction: direction,
+              polishSingular: _nounPolishSingularController.text,
+              polishPlural: _nounPolishPluralController.text,
+              english: _nounEnglishController.text,
+            )
+          : _isAdjective
+              ? _adjectiveSourceText(
+                  direction: direction,
+                  polishMasculine: _adjectivePolishMasculineController.text,
+                  polishFeminine: _adjectivePolishFeminineController.text,
+                  polishNeuter: _adjectivePolishNeuterController.text,
+                  english: _adjectiveEnglishController.text,
+                )
+              : _isVerb
+                  ? _verbSourceText(
+                      direction: direction,
+                      polishImperfective: _verbPolishImperfectiveController.text,
+                      polishPerfective: _verbPolishPerfectiveController.text,
+                      english: _verbEnglishController.text,
+                    )
+                  : _frontController.text.trim(),
+      TranslationDirection.enToPl => _isNoun
+          ? _nounSourceText(
+              direction: direction,
+              polishSingular: _nounPolishSingularController.text,
+              polishPlural: _nounPolishPluralController.text,
+              english: _nounEnglishController.text,
+            )
+          : _isAdjective
+              ? _adjectiveSourceText(
+                  direction: direction,
+                  polishMasculine: _adjectivePolishMasculineController.text,
+                  polishFeminine: _adjectivePolishFeminineController.text,
+                  polishNeuter: _adjectivePolishNeuterController.text,
+                  english: _adjectiveEnglishController.text,
+                )
+              : _isVerb
+                  ? _verbSourceText(
+                      direction: direction,
+                      polishImperfective: _verbPolishImperfectiveController.text,
+                      polishPerfective: _verbPolishPerfectiveController.text,
+                      english: _verbEnglishController.text,
+                    )
+                  : _backController.text.trim(),
+    };
+    if (sourceText.isEmpty) {
+      setState(() {
+        _error = direction == TranslationDirection.plToEn
+            ? 'Add Polish text first.'
+            : 'Add English text first.';
+      });
+      return;
+    }
+
+    setState(() {
+      if (direction == TranslationDirection.plToEn) {
+        _translatingToEnglish = true;
+      } else {
+        _translatingToPolish = true;
+      }
+      _error = null;
+    });
+
+    try {
+      final nounTranslation = _isNoun
+          ? await widget.api.translateNounText(
+              text: sourceText,
+              direction: direction,
+            )
+          : null;
+      final adjectiveTranslation = _isAdjective
+          ? await widget.api.translateAdjectiveText(
+              text: sourceText,
+              direction: direction,
+            )
+          : null;
+      final verbTranslation = _isVerb
+          ? await widget.api.translateVerbText(
+              text: sourceText,
+              direction: direction,
+            )
+          : null;
+      final translation = _isNoun || _isAdjective || _isVerb
+          ? null
+          : await widget.api.translateText(
+              text: sourceText,
+              direction: direction,
+            );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        if (_isNoun) {
+          _applyNounTranslation(
+            translation: nounTranslation!,
+            polishSingularController: _nounPolishSingularController,
+            polishPluralController: _nounPolishPluralController,
+            englishController: _nounEnglishController,
+          );
+        } else if (_isAdjective) {
+          _applyAdjectiveTranslation(
+            translation: adjectiveTranslation!,
+            polishMasculineController: _adjectivePolishMasculineController,
+            polishFeminineController: _adjectivePolishFeminineController,
+            polishNeuterController: _adjectivePolishNeuterController,
+            englishController: _adjectiveEnglishController,
+          );
+        } else if (_isVerb) {
+          _applyVerbTranslation(
+            translation: verbTranslation!,
+            polishImperfectiveController: _verbPolishImperfectiveController,
+            polishPerfectiveController: _verbPolishPerfectiveController,
+            englishController: _verbEnglishController,
+          );
+        } else if (direction == TranslationDirection.plToEn) {
+          _backController.text = translation!;
+        } else {
+          _frontController.text = translation!;
+        }
+      });
+    } on UnauthorizedException {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = 'Session expired. Please log in again.');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = 'Failed to translate');
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (direction == TranslationDirection.plToEn) {
+            _translatingToEnglish = false;
+          } else {
+            _translatingToPolish = false;
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit card'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<CardType>(
+              initialValue: _cardType,
+              decoration: const InputDecoration(labelText: 'Type'),
+              isExpanded: true,
+              items: CardType.values
+                  .map(
+                    (type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _cardType = value);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            if (_isNoun) ...[
+              TextField(
+                controller: _nounPolishSingularController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish singular',
+                  hintText: 'e.g. ten dom',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _nounPolishPluralController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish plural',
+                  hintText: 'e.g. te domy',
+                ),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _translatingToEnglish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.plToEn,
+                              ),
+                      icon: _translatingToEnglish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_downward),
+                      tooltip: 'Translate Polish to English',
+                    ),
+                    IconButton(
+                      onPressed: _translatingToPolish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.enToPl,
+                              ),
+                      icon: _translatingToPolish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_upward),
+                      tooltip: 'Translate English to Polish',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _nounEnglishController,
+                decoration: const InputDecoration(
+                  labelText: 'English singular',
+                  hintText: 'e.g. house',
+                ),
+              ),
+            ] else if (_isAdjective) ...[
+              TextField(
+                controller: _adjectivePolishMasculineController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish masculine',
+                  hintText: 'e.g. dobry',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _adjectivePolishFeminineController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish feminine',
+                  hintText: 'e.g. dobra',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _adjectivePolishNeuterController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish neuter',
+                  hintText: 'e.g. dobre',
+                ),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _translatingToEnglish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.plToEn,
+                              ),
+                      icon: _translatingToEnglish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_downward),
+                      tooltip: 'Translate Polish to English',
+                    ),
+                    IconButton(
+                      onPressed: _translatingToPolish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.enToPl,
+                              ),
+                      icon: _translatingToPolish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_upward),
+                      tooltip: 'Translate English to Polish',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _adjectiveEnglishController,
+                decoration: const InputDecoration(
+                  labelText: 'English adjective',
+                  hintText: 'e.g. good',
+                ),
+              ),
+            ] else if (_isVerb) ...[
+              TextField(
+                controller: _verbPolishImperfectiveController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish imperfective',
+                  hintText: 'e.g. czytać',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _verbPolishPerfectiveController,
+                decoration: const InputDecoration(
+                  labelText: 'Polish perfective',
+                  hintText: 'e.g. przeczytać',
+                ),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _translatingToEnglish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.plToEn,
+                              ),
+                      icon: _translatingToEnglish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_downward),
+                      tooltip: 'Translate Polish to English',
+                    ),
+                    IconButton(
+                      onPressed: _translatingToPolish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.enToPl,
+                              ),
+                      icon: _translatingToPolish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_upward),
+                      tooltip: 'Translate English to Polish',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _verbEnglishController,
+                decoration: const InputDecoration(
+                  labelText: 'English verb',
+                  hintText: 'e.g. read',
+                ),
+              ),
+            ] else ...[
+              TextField(
+                controller: _frontController,
+                decoration: const InputDecoration(labelText: 'Polish'),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: _translatingToEnglish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.plToEn,
+                              ),
+                      icon: _translatingToEnglish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_downward),
+                      tooltip: 'Translate Polish to English',
+                    ),
+                    IconButton(
+                      onPressed: _translatingToPolish
+                          ? null
+                          : () => _translate(
+                                direction: TranslationDirection.enToPl,
+                              ),
+                      icon: _translatingToPolish
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_upward),
+                      tooltip: 'Translate English to Polish',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _backController,
+                decoration: const InputDecoration(labelText: 'English'),
+                maxLines: 3,
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (_error != null) ...[
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              const SizedBox(height: 12),
+            ],
+            TextField(
+              controller: _hintController,
+              decoration: const InputDecoration(labelText: 'Hint (optional)'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final front = _isNoun
+                ? _joinNounFront(
+                    _nounPolishSingularController.text,
+                    _nounPolishPluralController.text,
+                  )
+                : _isAdjective
+                    ? _joinAdjectiveFront(
+                        _adjectivePolishMasculineController.text,
+                        _adjectivePolishFeminineController.text,
+                        _adjectivePolishNeuterController.text,
+                      )
+                    : _isVerb
+                        ? _joinVerbFront(
+                            _verbPolishImperfectiveController.text,
+                            _verbPolishPerfectiveController.text,
+                          )
+                        : _frontController.text.trim();
+            final back = _isNoun
+                ? _nounEnglishController.text.trim()
+                : _isAdjective
+                    ? _adjectiveEnglishController.text.trim()
+                    : _isVerb
+                        ? _verbEnglishController.text.trim()
+                        : _backController.text.trim();
+            final hint = _hintController.text.trim();
+            if (front.isEmpty || back.isEmpty) {
+              setState(() {
+                _error = 'Polish and English are required.';
+              });
+              return;
+            }
+            Navigator.of(context).pop(_EditCardResult(
+              shouldSave: true,
+              front: front,
+              back: back,
+              hint: hint,
+              cardType: _cardType,
+            ));
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditCardResult {
+  final bool shouldSave;
+  final String front;
+  final String back;
+  final String hint;
+  final CardType cardType;
+
+  _EditCardResult({
+    required this.shouldSave,
+    required this.front,
+    required this.back,
+    required this.hint,
+    required this.cardType,
+  });
 }
