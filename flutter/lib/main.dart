@@ -14,6 +14,7 @@ class KounApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'koun',
+      debugShowCheckedModeBanner: false,
       theme: KounTheme.dark,
       darkTheme: KounTheme.dark,
       themeMode: ThemeMode.dark,
