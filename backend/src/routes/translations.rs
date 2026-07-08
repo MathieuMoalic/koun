@@ -74,7 +74,7 @@ pub async fn translate_text(
 
     let (system, user, max_tokens) = if is_noun {
         (
-            "You are a Polish-English noun card generator. Return only strict JSON with keys: translation, polish_singular, polish_plural, english. No commentary, markdown, or extra keys. polish_singular must be exactly one Polish noun phrase with the correct singular demonstrative article: ten, ta, or to. polish_plural must be exactly one Polish plural noun phrase with te. english must be the base English noun only, with no article, no 'this', and no plural unless the noun is plural-only. translation must match the requested direction: English only for Polish to English, Polish singular only for English to Polish.",
+            "You are a Polish-English noun card generator. Return only strict JSON with keys: translation, polish_singular, polish_plural, english. No commentary, markdown, or extra keys. polish_singular must be exactly one Polish noun phrase with the correct singular demonstrative article: ten, ta, or to. polish_plural must be exactly one Polish plural noun phrase. For masculine-personal nouns (groups with at least one male person), use 'Ci' (e.g., mężczyźni→mężowie, studenci→studentów, rodzice→rodziców). For all other nouns (women-only, animals, objects, abstract concepts), use 'te' (e.g., kobiety→kobiet, koty→kotów, książki→książek, idea→idej). english must be the base English noun only, with no article, no 'this', and no plural unless the noun is plural-only. translation must match the requested direction: English only for Polish to English, Polish singular only for English to Polish.",
             format!("Direction: {direction_label}\nNoun text: {text}"),
             Some(192),
         )
