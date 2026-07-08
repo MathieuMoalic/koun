@@ -6,8 +6,8 @@ plugins {
 }
 
 android {
-    namespace = "com.example.koun"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.matmoal.koun"
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -20,20 +20,29 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.koun"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("prod") {
+            dimension = "environment"
+            applicationId = "com.matmoal.koun"
+            resValue("string", "app_name", "koun")
+        }
+        create("dev") {
+            dimension = "environment"
+            applicationId = "com.matmoal.koun.dev"
+            resValue("string", "app_name", "koun dev")
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
