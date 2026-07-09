@@ -203,10 +203,40 @@
           description = "ElevenLabs API key";
         };
 
-        elevenlabsApiKeyFile = lib.mkOption {
+         elevenlabsApiKeyFile = lib.mkOption {
           type = lib.types.nullOr lib.types.path;
           default = null;
           description = "Path to file containing ElevenLabs API key (for sops-nix)";
+        };
+
+        llmApiUrl = lib.mkOption {
+          type = lib.types.str;
+          default = "https://openrouter.ai/api/v1";
+          description = "LLM API endpoint URL";
+        };
+
+        llmModel = lib.mkOption {
+          type = lib.types.str;
+          default = "openai/gpt-4o-mini";
+          description = "LLM model name to use";
+        };
+
+        elevenlabsVoiceId = lib.mkOption {
+          type = lib.types.str;
+          default = "cgSgspJ2msm6clMCkdW9";
+          description = "ElevenLabs voice ID";
+        };
+
+        elevenlabsModelId = lib.mkOption {
+          type = lib.types.str;
+          default = "eleven_multilingual_v2";
+          description = "ElevenLabs model ID";
+        };
+
+        audioDir = lib.mkOption {
+          type = lib.types.path;
+          default = "card_audio";
+          description = "Directory for audio files";
         };
       };
 
@@ -248,10 +278,27 @@
           "f ${cfg.logFile} 0640 koun koun - -"
         ];
 
-        systemd.services.koun = {
+         systemd.services.koun = {
           description = "Koun spaced repetition backend";
           after = ["network.target"];
           wantedBy = ["multi-user.target"];
+
+          environment =
+            {
+              KOUN_BIND = cfg.bindAddr;
+              KOUN_DB = cfg.databasePath;
+              KOUN_LOG_FILE = cfg.logFile;
+            }
+            // lib.optionalAttrs (cfg.corsOrigin != null) {KOUN_CORS_ORIGIN = cfg.corsOrigin;}
+            // lib.optionalAttrs (cfg.passwordHash != null) {KOUN_PASSWORD_HASH = cfg.passwordHash;}
+            // lib.optionalAttrs (cfg.jwtSecret != null) {KOUN_JWT_SECRET = cfg.jwtSecret;}
+            // lib.optionalAttrs (cfg.llmApiKey != null) {KOUN_LLM_API_KEY = cfg.llmApiKey;}
+            // lib.optionalAttrs (cfg.elevenlabsApiKey != null) {KOUN_ELEVENLABS_API_KEY = cfg.elevenlabsApiKey;}
+            lib.optionalAttrs (cfg.llmApiUrl != "https://openrouter.ai/api/v1") {KOUN_LLM_API_URL = cfg.llmApiUrl;}
+            lib.optionalAttrs (cfg.llmModel != "openai/gpt-4o-mini") {KOUN_LLM_MODEL = cfg.llmModel;}
+            lib.optionalAttrs (cfg.elevenlabsVoiceId != "cgSgspJ2msm6clMCkdW9") {KOUN_ELEVENLABS_VOICE_ID = cfg.elevenlabsVoiceId;}
+            lib.optionalAttrs (cfg.elevenlabsModelId != "eleven_multilingual_v2") {KOUN_ELEVENLABS_MODEL_ID = cfg.elevenlabsModelId;}
+            lib.optionalAttrs (cfg.audioDir != "card_audio") {KOUN_AUDIO_DIR = cfg.audioDir;};
 
           script = let
             passwordHashLoader =
