@@ -100,14 +100,14 @@
       version = "1.0.0";
 
       src = pkgs.fetchurl {
-        url = "https://github.com/MathieuMoalic/koun/releases/download/v0.1.0/koun-v0.1.0-x86_64-linux.tar.gz";
+        url = "https://github.com/MathieuMoalic/koun/releases/download/v1.0.0/koun-v1.0.0-x86_64-linux.tar.gz";
         hash = "sha256-ShVXsPHhyrDAD/Sz+iFZsNjeiABJRl0FbyZeicFzuPk=";
       };
 
       sourceRoot = ".";
 
       installPhase = ''
-        install -Dm755 koun-v0.1.0-x86_64-linux $out/bin/koun
+        install -Dm755 koun-v1.0.0-x86_64-linux $out/bin/koun
       '';
 
       meta = with lib; {
@@ -308,3 +308,4 @@
     };
   };
 }
+
