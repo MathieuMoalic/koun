@@ -203,7 +203,7 @@
           description = "ElevenLabs API key";
         };
 
-         elevenlabsApiKeyFile = lib.mkOption {
+        elevenlabsApiKeyFile = lib.mkOption {
           type = lib.types.nullOr lib.types.path;
           default = null;
           description = "Path to file containing ElevenLabs API key (for sops-nix)";
@@ -270,6 +270,7 @@
           home = "/var/lib/koun";
           createHome = true;
         };
+
         users.groups.koun = {};
 
         systemd.tmpfiles.rules = [
@@ -278,7 +279,7 @@
           "f ${cfg.logFile} 0640 koun koun - -"
         ];
 
-         systemd.services.koun = {
+        systemd.services.koun = {
           description = "Koun spaced repetition backend";
           after = ["network.target"];
           wantedBy = ["multi-user.target"];
@@ -289,30 +290,53 @@
               KOUN_DB = cfg.databasePath;
               KOUN_LOG_FILE = cfg.logFile;
             }
-            // lib.optionalAttrs (cfg.corsOrigin != null) {KOUN_CORS_ORIGIN = cfg.corsOrigin;}
-            // lib.optionalAttrs (cfg.passwordHash != null) {KOUN_PASSWORD_HASH = cfg.passwordHash;}
-            // lib.optionalAttrs (cfg.jwtSecret != null) {KOUN_JWT_SECRET = cfg.jwtSecret;}
-            // lib.optionalAttrs (cfg.llmApiKey != null) {KOUN_LLM_API_KEY = cfg.llmApiKey;}
-            // lib.optionalAttrs (cfg.elevenlabsApiKey != null) {KOUN_ELEVENLABS_API_KEY = cfg.elevenlabsApiKey;}
-            lib.optionalAttrs (cfg.llmApiUrl != "https://openrouter.ai/api/v1") {KOUN_LLM_API_URL = cfg.llmApiUrl;}
-            lib.optionalAttrs (cfg.llmModel != "openai/gpt-4o-mini") {KOUN_LLM_MODEL = cfg.llmModel;}
-            lib.optionalAttrs (cfg.elevenlabsVoiceId != "cgSgspJ2msm6clMCkdW9") {KOUN_ELEVENLABS_VOICE_ID = cfg.elevenlabsVoiceId;}
-            lib.optionalAttrs (cfg.elevenlabsModelId != "eleven_multilingual_v2") {KOUN_ELEVENLABS_MODEL_ID = cfg.elevenlabsModelId;}
-            lib.optionalAttrs (cfg.audioDir != "card_audio") {KOUN_AUDIO_DIR = cfg.audioDir;};
+            // lib.optionalAttrs (cfg.corsOrigin != null) {
+              KOUN_CORS_ORIGIN = cfg.corsOrigin;
+            }
+            // lib.optionalAttrs (cfg.passwordHash != null) {
+              KOUN_PASSWORD_HASH = cfg.passwordHash;
+            }
+            // lib.optionalAttrs (cfg.jwtSecret != null) {
+              KOUN_JWT_SECRET = cfg.jwtSecret;
+            }
+            // lib.optionalAttrs (cfg.llmApiKey != null) {
+              KOUN_LLM_API_KEY = cfg.llmApiKey;
+            }
+            // lib.optionalAttrs (cfg.elevenlabsApiKey != null) {
+              KOUN_ELEVENLABS_API_KEY = cfg.elevenlabsApiKey;
+            }
+            // lib.optionalAttrs (cfg.llmApiUrl != "https://openrouter.ai/api/v1") {
+              KOUN_LLM_API_URL = cfg.llmApiUrl;
+            }
+            // lib.optionalAttrs (cfg.llmModel != "openai/gpt-4o-mini") {
+              KOUN_LLM_MODEL = cfg.llmModel;
+            }
+            // lib.optionalAttrs (cfg.elevenlabsVoiceId != "cgSgspJ2msm6clMCkdW9") {
+              KOUN_ELEVENLABS_VOICE_ID = cfg.elevenlabsVoiceId;
+            }
+            // lib.optionalAttrs (cfg.elevenlabsModelId != "eleven_multilingual_v2") {
+              KOUN_ELEVENLABS_MODEL_ID = cfg.elevenlabsModelId;
+            }
+            // lib.optionalAttrs (cfg.audioDir != "card_audio") {
+              KOUN_AUDIO_DIR = cfg.audioDir;
+            };
 
           script = let
             passwordHashLoader =
               if cfg.passwordHashFile != null
               then ''export KOUN_PASSWORD_HASH="$(cat ${cfg.passwordHashFile})"''
               else "";
+
             jwtSecretLoader =
               if cfg.jwtSecretFile != null
               then ''export KOUN_JWT_SECRET="$(cat ${cfg.jwtSecretFile})"''
               else "";
+
             llmApiKeyLoader =
               if cfg.llmApiKeyFile != null
               then ''export KOUN_LLM_API_KEY="$(cat ${cfg.llmApiKeyFile})"''
               else "";
+
             elevenlabsApiKeyLoader =
               if cfg.elevenlabsApiKeyFile != null
               then ''export KOUN_ELEVENLABS_API_KEY="$(cat ${cfg.elevenlabsApiKeyFile})"''
@@ -346,7 +370,9 @@
     };
   in {
     devShells.${system}.default = shell;
+
     nixosModules.koun-service = service;
+
     packages.${system} = {
       default = package;
       backend = package;
@@ -355,4 +381,3 @@
     };
   };
 }
-
