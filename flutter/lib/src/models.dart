@@ -4,6 +4,8 @@ enum CardType { noun, verb, adjective, phrase }
 
 enum TranslationDirection { plToEn, enToPl }
 
+enum ReviewDirection { plToEn, enToPl }
+
 extension CardTypeX on CardType {
   String get label => switch (this) {
         CardType.noun => 'Noun',
@@ -37,6 +39,18 @@ extension TranslationDirectionX on TranslationDirection {
         TranslationDirection.plToEn => 'pl_to_en',
         TranslationDirection.enToPl => 'en_to_pl',
       };
+}
+
+extension ReviewDirectionX on ReviewDirection {
+  static ReviewDirection fromJson(String? value) {
+    switch (value) {
+      case 'en_to_pl':
+        return ReviewDirection.enToPl;
+      case 'pl_to_en':
+      default:
+        return ReviewDirection.plToEn;
+    }
+  }
 }
 
 class CardModel {
@@ -92,48 +106,43 @@ class CardModel {
   }
 }
 
-class ReviewCard {
-  final int id;
-  final String front;
-  final String back;
+class ReviewItem {
+  final int cardId;
+  final int cardDirectionId;
+  final ReviewDirection direction;
+  final String prompt;
+  final String answer;
   final String? hint;
-  final bool suspended;
-
-  ReviewCard({
-    required this.id,
-    required this.front,
-    required this.back,
-    required this.hint,
-    required this.suspended,
-  });
-
-  factory ReviewCard.fromJson(Map<String, dynamic> json) {
-    return ReviewCard(
-      id: json['id'] as int,
-      front: json['front'] as String,
-      back: json['back'] as String,
-      hint: json['hint'] as String?,
-      suspended: json['suspended'] as bool? ?? false,
-    );
-  }
-}
-
-class CardWithDue {
-  final ReviewCard card;
+  final CardType cardType;
   final int dueAt;
 
-  CardWithDue({required this.card, required this.dueAt});
+  ReviewItem({
+    required this.cardId,
+    required this.cardDirectionId,
+    required this.direction,
+    required this.prompt,
+    required this.answer,
+    required this.hint,
+    required this.cardType,
+    required this.dueAt,
+  });
 
-  factory CardWithDue.fromJson(Map<String, dynamic> json) {
-    return CardWithDue(
-      card: ReviewCard.fromJson(json['card'] as Map<String, dynamic>),
+  factory ReviewItem.fromJson(Map<String, dynamic> json) {
+    return ReviewItem(
+      cardId: json['card_id'] as int,
+      cardDirectionId: json['card_direction_id'] as int,
+      direction: ReviewDirectionX.fromJson(json['direction'] as String?),
+      prompt: json['prompt'] as String,
+      answer: json['answer'] as String,
+      hint: json['hint'] as String?,
+      cardType: CardTypeX.fromJson(json['card_type'] as String?),
       dueAt: json['due_at'] as int,
     );
   }
 }
 
 class NextReviewResponse {
-  final CardWithDue? next;
+  final ReviewItem? next;
   final int dueCount;
 
   NextReviewResponse({required this.next, required this.dueCount});
@@ -143,28 +152,38 @@ class NextReviewResponse {
     return NextReviewResponse(
       next: nextJson == null
           ? null
-          : CardWithDue.fromJson(nextJson as Map<String, dynamic>),
+          : ReviewItem.fromJson(nextJson as Map<String, dynamic>),
       dueCount: json['due_count'] as int,
     );
   }
 }
 
 class ReviewEvent {
-  final int cardId;
+  final int? cardDirectionId;
+  final int? cardId;
   final ReviewRating rating;
   final int reviewedAt;
 
   ReviewEvent({
-    required this.cardId,
+    this.cardDirectionId,
+    this.cardId,
     required this.rating,
     required this.reviewedAt,
-  });
+  }) : assert(cardDirectionId != null || cardId != null);
 
-  Map<String, dynamic> toJson() => {
-        'card_id': cardId,
-        'rating': rating.name,
-        'reviewed_at': reviewedAt,
-      };
+  Map<String, dynamic> toJson() {
+    final data = <String, dynamic>{
+      'rating': rating.name,
+      'reviewed_at': reviewedAt,
+    };
+    if (cardDirectionId != null) {
+      data['card_direction_id'] = cardDirectionId;
+    }
+    if (cardId != null) {
+      data['card_id'] = cardId;
+    }
+    return data;
+  }
 }
 
 class ReviewsPerDay {

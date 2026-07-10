@@ -95,8 +95,7 @@ class ApiClient {
     }
 
     if (!normalized.contains('://')) {
-      final isLocal =
-          normalized.startsWith('localhost') ||
+      final isLocal = normalized.startsWith('localhost') ||
           normalized.startsWith('127.0.0.1') ||
           normalized.startsWith('0.0.0.0');
       normalized = '${isLocal ? 'http' : 'https'}://$normalized';
@@ -570,7 +569,8 @@ class ApiClient {
     }
     final events = queue
         .map((item) => ReviewEvent(
-              cardId: item['card_id'] as int,
+              cardDirectionId: item['card_direction_id'] as int?,
+              cardId: item['card_id'] as int?,
               rating: ReviewRating.values
                   .firstWhere((r) => r.name == item['rating']),
               reviewedAt: item['reviewed_at'] as int,

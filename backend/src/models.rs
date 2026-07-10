@@ -21,6 +21,13 @@ pub enum ReviewRating {
     Easy,
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewDirection {
+    PlToEn,
+    EnToPl,
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum TokenType {
@@ -48,8 +55,14 @@ pub struct Card {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CardWithDue {
-    pub card: Card,
+pub struct ReviewItem {
+    pub card_id: i64,
+    pub card_direction_id: i64,
+    pub direction: ReviewDirection,
+    pub prompt: String,
+    pub answer: String,
+    pub hint: Option<String>,
+    pub card_type: String,
     pub due_at: i64,
 }
 
@@ -73,7 +86,7 @@ pub struct CardListItem {
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct ScheduleState {
-    pub card_id: i64,
+    pub card_direction_id: i64,
     pub fsrs_stability: f64,
     pub fsrs_difficulty: f64,
     pub fsrs_due_at: i64,
@@ -93,7 +106,9 @@ pub struct FsrsSettings {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReviewEvent {
-    pub card_id: i64,
+    pub card_direction_id: Option<i64>,
+    #[serde(default)]
+    pub card_id: Option<i64>,
     pub rating: ReviewRating,
     pub reviewed_at: Option<i64>,
 }

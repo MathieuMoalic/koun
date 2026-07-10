@@ -39,7 +39,7 @@ class _LearnViewState extends State<LearnView> {
         _error = null;
         _loading = false;
       });
-      await _playCardAudioOnce(response.next?.card);
+      await _playCardAudioOnce(response.next);
     } on UnauthorizedException {
       setState(() {
         _error = 'Session expired. Please log in again.';
@@ -55,12 +55,12 @@ class _LearnViewState extends State<LearnView> {
   }
 
   Future<void> _submit(ReviewRating rating) async {
-    final card = _response?.next?.card;
-    if (card == null) {
+    final next = _response?.next;
+    if (next == null) {
       return;
     }
     final event = ReviewEvent(
-      cardId: card.id,
+      cardDirectionId: next.cardDirectionId,
       rating: rating,
       reviewedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
@@ -75,14 +75,16 @@ class _LearnViewState extends State<LearnView> {
     }
   }
 
-  Future<void> _playCardAudioOnce(ReviewCard? card) async {
-    if (card == null || _lastAutoPlayedCardId == card.id) {
+  Future<void> _playCardAudioOnce(ReviewItem? reviewItem) async {
+    if (reviewItem == null ||
+        reviewItem.direction != ReviewDirection.plToEn ||
+        _lastAutoPlayedCardId == reviewItem.cardId) {
       return;
     }
-    _lastAutoPlayedCardId = card.id;
+    _lastAutoPlayedCardId = reviewItem.cardId;
     try {
-      final bytes = await widget.api.downloadCardAudio(card.id);
-      await _audioPlayer.playBytes(bytes, cardId: card.id);
+      final bytes = await widget.api.downloadCardAudio(reviewItem.cardId);
+      await _audioPlayer.playBytes(bytes, cardId: reviewItem.cardId);
     } on UnauthorizedException {
       if (!mounted) {
         return;
@@ -113,8 +115,6 @@ class _LearnViewState extends State<LearnView> {
       );
     }
 
-    final card = next.card;
-
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -129,7 +129,7 @@ class _LearnViewState extends State<LearnView> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      _showBack ? card.back : card.front,
+                      _showBack ? next.answer : next.prompt,
                       style: const TextStyle(fontSize: 22),
                       textAlign: TextAlign.center,
                     ),
@@ -138,9 +138,9 @@ class _LearnViewState extends State<LearnView> {
               ),
             ),
           ),
-          if (_showBack && card.hint != null) ...[
+          if (_showBack && next.hint != null) ...[
             const SizedBox(height: 8),
-            Text('Hint: ${card.hint}'),
+            Text('Hint: ${next.hint}'),
           ],
           const SizedBox(height: 12),
           Row(

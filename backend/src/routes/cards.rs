@@ -64,7 +64,8 @@ pub async fn list_cards(State(state): State<AppState>) -> AppResult<Json<Vec<Car
                 schedule_state.fsrs_stability, schedule_state.fsrs_difficulty,
                 schedule_state.fsrs_due_at, schedule_state.fsrs_last_review_at
           FROM cards
-         JOIN schedule_state ON schedule_state.card_id = cards.id
+         JOIN card_directions ON card_directions.card_id = cards.id AND card_directions.direction = 'pl_to_en'
+         JOIN schedule_state ON schedule_state.card_direction_id = card_directions.id
          ORDER BY cards.created_at DESC",
     )
     .fetch_all(&state.pool)
@@ -118,7 +119,8 @@ pub async fn create_card(
     .fetch_one(&state.pool)
     .await?;
 
-    insert_schedule_state(&state.pool, card.id, now).await?;
+    let pl_to_en_direction_id = ensure_card_directions(&state.pool, card.id, now).await?;
+    insert_schedule_state(&state.pool, pl_to_en_direction_id, now, 5.0).await?;
     if let Err(err) = generate_card_audio(&state, card.id, &card.front, &card.card_type).await {
         tracing::warn!(card_id = card.id, error = %err, "Failed to generate ElevenLabs audio");
     }
@@ -137,9 +139,13 @@ pub async fn create_card_from_english(
 
     let now = now_ts();
     let card_type = normalize_card_type(req.card_type)?.unwrap_or_else(|| "noun".to_string());
-    let translated =
-        translate_text_payload(&state, english, TranslationDirection::EnToPl, Some(&card_type))
-            .await?;
+    let translated = translate_text_payload(
+        &state,
+        english,
+        TranslationDirection::EnToPl,
+        Some(&card_type),
+    )
+    .await?;
 
     let front = build_front_from_translation(&card_type, &translated)?;
     let back = translated
@@ -163,7 +169,8 @@ pub async fn create_card_from_english(
     .fetch_one(&state.pool)
     .await?;
 
-    insert_schedule_state(&state.pool, card.id, now).await?;
+    let pl_to_en_direction_id = ensure_card_directions(&state.pool, card.id, now).await?;
+    insert_schedule_state(&state.pool, pl_to_en_direction_id, now, 5.0).await?;
     if let Err(err) = generate_card_audio(&state, card.id, &card.front, &card.card_type).await {
         tracing::warn!(card_id = card.id, error = %err, "Failed to generate ElevenLabs audio");
     }
@@ -182,12 +189,13 @@ pub async fn get_card_audio(
         audio_path: Option<String>,
     }
 
-    let row =
-        sqlx::query_as::<_, AudioRow>("SELECT front, card_type, audio_path FROM cards WHERE id = ?")
-            .bind(id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(StatusCode::NOT_FOUND)?;
+    let row = sqlx::query_as::<_, AudioRow>(
+        "SELECT front, card_type, audio_path FROM cards WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(StatusCode::NOT_FOUND)?;
     let audio_path = row.audio_path.unwrap_or_else(|| format!("card-{id}.mp3"));
     let path = state.config.audio_dir.join(&audio_path);
     if !path.exists() {
@@ -260,16 +268,50 @@ pub async fn delete_card(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn insert_schedule_state(pool: &SqlitePool, card_id: i64, now: i64) -> AppResult<()> {
+async fn ensure_card_directions(pool: &SqlitePool, card_id: i64, now: i64) -> AppResult<i64> {
+    let pl_to_en_direction_id: i64 = sqlx::query_scalar(
+        "INSERT INTO card_directions (card_id, direction, enabled, created_at, updated_at)
+         VALUES (?, 'pl_to_en', 1, ?, ?)
+         ON CONFLICT(card_id, direction) DO UPDATE SET enabled = 1, updated_at = excluded.updated_at
+         RETURNING id",
+    )
+    .bind(card_id)
+    .bind(now)
+    .bind(now)
+    .fetch_one(pool)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO card_directions (card_id, direction, enabled, created_at, updated_at)
+         VALUES (?, 'en_to_pl', 0, ?, ?)
+         ON CONFLICT(card_id, direction) DO NOTHING",
+    )
+    .bind(card_id)
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await?;
+
+    Ok(pl_to_en_direction_id)
+}
+
+async fn insert_schedule_state(
+    pool: &SqlitePool,
+    card_direction_id: i64,
+    now: i64,
+    initial_difficulty: f64,
+) -> AppResult<()> {
     sqlx::query(
         "INSERT INTO schedule_state (
-            card_id,
+            card_direction_id,
             fsrs_stability, fsrs_difficulty, fsrs_due_at, fsrs_last_review_at,
             fsrs_learning_step, fsrs_relearning_step, updated_at
          )
-         VALUES (?, 1.0, 5.0, ?, 0, 0, 0, ?)",
+         VALUES (?, 1.0, ?, ?, 0, 0, 0, ?)
+         ON CONFLICT(card_direction_id) DO NOTHING",
     )
-    .bind(card_id)
+    .bind(card_direction_id)
+    .bind(initial_difficulty)
     .bind(now)
     .bind(now)
     .execute(pool)
@@ -324,7 +366,11 @@ fn build_front_from_translation(
                 .as_deref()
                 .unwrap_or("ø")
                 .trim();
-            let perfective = translated.polish_perfective.as_deref().unwrap_or("ø").trim();
+            let perfective = translated
+                .polish_perfective
+                .as_deref()
+                .unwrap_or("ø")
+                .trim();
             format!(
                 "{} / {}",
                 if imperfective.is_empty() {
@@ -485,8 +531,14 @@ mod tests {
     #[test]
     fn noun_audio_uses_singular_without_demonstrative() {
         assert_eq!(audio_text_for_card("ten dom / te domy", "noun"), "dom");
-        assert_eq!(audio_text_for_card("ta książka / te książki", "noun"), "książka");
-        assert_eq!(audio_text_for_card("to dziecko / te dzieci", "noun"), "dziecko");
+        assert_eq!(
+            audio_text_for_card("ta książka / te książki", "noun"),
+            "książka"
+        );
+        assert_eq!(
+            audio_text_for_card("to dziecko / te dzieci", "noun"),
+            "dziecko"
+        );
     }
 
     #[test]
