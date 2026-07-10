@@ -19,6 +19,7 @@ class _SettingsViewState extends State<SettingsView> {
   String? _message;
   final String _clientVersion = '0.1.0';
   String? _serverVersion;
+  String? _serverUrl;
   final TextEditingController _retentionController = TextEditingController();
   final TextEditingController _learningStep1Controller = TextEditingController();
   final TextEditingController _learningStep2Controller = TextEditingController();
@@ -141,7 +142,52 @@ class _SettingsViewState extends State<SettingsView> {
 
     if (confirmed == true) {
       await widget.api.clearAuth();
+await widget.onUnauthorized?.call();
+    }
+  }
+
+  String? _serverUrl;
+
+  @override
+  Future<void> initState() async {
+    super.initState();
+    _retentionController.text = _defaultRetention.toStringAsFixed(2);
+    _learningStep1Controller.text = _defaultLearningStep1.toString();
+    _learningStep2Controller.text = _defaultLearningStep2.toString();
+    _relearningStepController.text = _defaultRelearningStep.toString();
+    _load();
+  }
+
+  @override
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final stats = await widget.api.reviewsPerDay();
+      final settings = await widget.api.getFsrsSettings();
+      final version = await widget.api.getVersion();
+      final serverUrl = await widget.api.baseUrl();
+      setState(() {
+        _stats = stats;
+        _retentionController.text =
+            settings.desiredRetention.toStringAsFixed(2);
+        _learningStep1Controller.text = settings.learningStep1Minutes.toString();
+        _learningStep2Controller.text = settings.learningStep2Minutes.toString();
+        _relearningStepController.text = settings.relearningStepMinutes.toString();
+        _serverVersion = version.version;
+        _serverUrl = serverUrl;
+        _loading = false;
+      });
+    } on UnauthorizedException {
+      setState(() {
+        _message = 'Session expired. Please log in again.';
+        _loading = false;
+      });
       await widget.onUnauthorized?.call();
+    } catch (_) {
+      setState(() {
+        _message = 'Failed to load settings.';
+        _loading = false;
+      });
     }
   }
 
@@ -255,6 +301,18 @@ class _SettingsViewState extends State<SettingsView> {
           onPressed: _logout,
           child: const Text('Logout'),
         ),
+        if (_serverUrl != null) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'Current server URL',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _serverUrl!,
+            style: const TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+        ],
         if (_message != null) ...[
           const SizedBox(height: 12),
           Text(_message!),

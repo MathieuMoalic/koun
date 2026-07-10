@@ -89,7 +89,18 @@ class ApiClient {
 
   Future<String> _baseUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_serverUrlKey) ?? 'http://localhost:8080';
+    final savedUrl = prefs.getString(_serverUrlKey);
+    
+    // Return saved URL if it exists and is not empty
+    if (savedUrl != null && savedUrl.isNotEmpty) {
+      return savedUrl;
+    }
+    
+    // Check if we should use the release URL
+    const bool isReleaseMode = bool.fromEnvironment('dart.vm.release');
+    const String releaseBaseUrl = 'https://koun.matmoa.eu';
+    
+    return isReleaseMode ? releaseBaseUrl : 'http://localhost:8080';
   }
 
   Future<void> setServerUrl(String url) async {
