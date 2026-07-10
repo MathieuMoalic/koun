@@ -56,7 +56,7 @@
 
     webBuild = pkgs.flutter.buildFlutterApplication {
       pname = "koun-web";
-      version = "1.0.3";
+      version = "1.0.4";
       src = pkgs.lib.cleanSource ./flutter;
       autoPubspecLock = ./flutter/pubspec.lock;
       targetFlutterPlatform = "web";
@@ -64,7 +64,7 @@
 
     package = pkgs.rustPlatform.buildRustPackage {
       pname = "koun";
-      version = "1.0.3";
+      version = "1.0.4";
       src = ./backend;
 
       cargoLock = {
@@ -97,11 +97,11 @@
 
     prebuilt = pkgs.stdenvNoCC.mkDerivation {
       pname = "koun";
-      version = "1.0.3";
+      version = "1.0.4";
 
       src = pkgs.fetchurl {
-        url = "https://github.com/MathieuMoalic/koun/releases/download/v1.0.3/koun-v1.0.3-x86_64-linux";
-        hash = "sha256-Je5rfZeYSf/4K6sW1poQI06aVQQQu1dC/44JV39W9Bs=";
+        url = "https://github.com/MathieuMoalic/koun/releases/download/v1.0.4/koun-v1.0.4-x86_64-linux";
+        hash = "sha256-rmgwdwKjz8gWYRE4r23T6UiI/BQVG4xhh7Dbb5Wgfgo=";
       };
 
       dontUnpack = true;
