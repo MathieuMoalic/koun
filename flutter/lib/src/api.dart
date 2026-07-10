@@ -103,6 +103,8 @@ class ApiClient {
     return isReleaseMode ? releaseBaseUrl : 'http://localhost:8080';
   }
 
+  Future<String> baseUrl() => _baseUrl();
+
   Future<void> setServerUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_serverUrlKey, url);

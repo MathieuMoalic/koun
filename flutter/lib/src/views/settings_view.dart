@@ -55,6 +55,7 @@ class _SettingsViewState extends State<SettingsView> {
       final stats = await widget.api.reviewsPerDay();
       final settings = await widget.api.getFsrsSettings();
       final version = await widget.api.getVersion();
+      final serverUrl = await widget.api.baseUrl();
       setState(() {
         _stats = stats;
         _retentionController.text =
@@ -63,6 +64,7 @@ class _SettingsViewState extends State<SettingsView> {
         _learningStep2Controller.text = settings.learningStep2Minutes.toString();
         _relearningStepController.text = settings.relearningStepMinutes.toString();
         _serverVersion = version.version;
+        _serverUrl = serverUrl;
         _loading = false;
       });
     } on UnauthorizedException {
@@ -142,52 +144,7 @@ class _SettingsViewState extends State<SettingsView> {
 
     if (confirmed == true) {
       await widget.api.clearAuth();
-await widget.onUnauthorized?.call();
-    }
-  }
-
-  String? _serverUrl;
-
-  @override
-  Future<void> initState() async {
-    super.initState();
-    _retentionController.text = _defaultRetention.toStringAsFixed(2);
-    _learningStep1Controller.text = _defaultLearningStep1.toString();
-    _learningStep2Controller.text = _defaultLearningStep2.toString();
-    _relearningStepController.text = _defaultRelearningStep.toString();
-    _load();
-  }
-
-  @override
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    try {
-      final stats = await widget.api.reviewsPerDay();
-      final settings = await widget.api.getFsrsSettings();
-      final version = await widget.api.getVersion();
-      final serverUrl = await widget.api.baseUrl();
-      setState(() {
-        _stats = stats;
-        _retentionController.text =
-            settings.desiredRetention.toStringAsFixed(2);
-        _learningStep1Controller.text = settings.learningStep1Minutes.toString();
-        _learningStep2Controller.text = settings.learningStep2Minutes.toString();
-        _relearningStepController.text = settings.relearningStepMinutes.toString();
-        _serverVersion = version.version;
-        _serverUrl = serverUrl;
-        _loading = false;
-      });
-    } on UnauthorizedException {
-      setState(() {
-        _message = 'Session expired. Please log in again.';
-        _loading = false;
-      });
       await widget.onUnauthorized?.call();
-    } catch (_) {
-      setState(() {
-        _message = 'Failed to load settings.';
-        _loading = false;
-      });
     }
   }
 
@@ -205,14 +162,14 @@ await widget.onUnauthorized?.call();
   }
 
   Future<void> _editServerUrl() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: _serverUrl ?? '');
     final url = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Server URL'),
         content: TextField(
           controller: controller,
-            decoration: const InputDecoration(hintText: 'http://localhost:8080'),
+          decoration: const InputDecoration(hintText: 'http://localhost:8080'),
         ),
         actions: [
           TextButton(
@@ -228,7 +185,10 @@ await widget.onUnauthorized?.call();
     );
     if (url != null && url.isNotEmpty) {
       await widget.api.setServerUrl(url);
-      setState(() => _message = 'Server URL updated');
+      setState(() {
+        _serverUrl = url;
+        _message = 'Server URL updated';
+      });
     }
   }
 

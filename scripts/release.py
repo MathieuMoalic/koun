@@ -258,45 +258,63 @@ def release_command(bump_type: str) -> None:
     old = current_version()
     new = bump_version(old, bump_type)
     tag = f"v{new}"
+    starting_head = output("git", "rev-parse", "HEAD")
+    remote_touched = False
 
-    RELEASE_DIR.mkdir(parents=True, exist_ok=True)
-    for item in RELEASE_DIR.iterdir():
-        if item.is_file() or item.is_symlink():
-            item.unlink()
-        elif item.is_dir():
-            shutil.rmtree(item)
+    try:
+        RELEASE_DIR.mkdir(parents=True, exist_ok=True)
+        for item in RELEASE_DIR.iterdir():
+            if item.is_file() or item.is_symlink():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
 
-    update_version_files(old, new)
-    cargo_check()
-    build_flutter_web()
-    backend_artifact = build_backend(new)
-    nix_hash = nix_hash_file(backend_artifact)
+        update_version_files(old, new)
+        cargo_check()
+        build_flutter_web()
+        backend_artifact = build_backend(new)
+        nix_hash = nix_hash_file(backend_artifact)
 
-    print(f"Backend artifact: {backend_artifact}")
-    print(f"Nix hash: {nix_hash}")
+        print(f"Backend artifact: {backend_artifact}")
+        print(f"Nix hash: {nix_hash}")
 
-    update_flake_prebuilt(new, nix_hash)
+        update_flake_prebuilt(new, nix_hash)
 
-    commit_and_tag(new)
+        commit_and_tag(new)
 
-    apk_artifact = build_apk(new)
+        apk_artifact = build_apk(new)
 
-    print()
-    print("📦 Release artifacts created:")
-    print(f"  {backend_artifact}")
-    print(f"  {apk_artifact}")
+        print()
+        print("📦 Release artifacts created:")
+        print(f"  {backend_artifact}")
+        print(f"  {apk_artifact}")
 
-    print()
-    print(f"Pushing commit and tag {tag}...")
-    run("git", "push", "origin", "HEAD")
-    run("git", "push", "origin", tag)
+        print()
+        print(f"Pushing commit and tag {tag}...")
+        remote_touched = True
+        run("git", "push", "origin", "HEAD")
+        run("git", "push", "origin", tag)
 
-    print()
-    print(f"Creating GitHub release {tag}...")
-    push_release_command(tag)
+        print()
+        print(f"Creating GitHub release {tag}...")
+        push_release_command(tag)
 
-    print()
-    print(f"✓ Released {tag}")
+        print()
+        print(f"✓ Released {tag}")
+    except Exception:
+        if not remote_touched:
+            print(
+                "Release failed before pushing to remote; resetting repository state."
+            )
+            run("git", "reset", "--hard", starting_head)
+            if output("git", "tag", "-l", tag) == tag:
+                run("git", "tag", "-d", tag)
+            if RELEASE_DIR.exists():
+                shutil.rmtree(RELEASE_DIR)
+            web_build = BACKEND / "web_build"
+            if web_build.exists():
+                shutil.rmtree(web_build)
+        raise
 
 
 def build_flutter_web() -> None:
