@@ -1,7 +1,5 @@
 PRAGMA foreign_keys = OFF;
 
-BEGIN TRANSACTION;
-
 CREATE TABLE card_directions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
@@ -82,7 +80,5 @@ ALTER TABLE reviews_new RENAME TO reviews;
 CREATE INDEX idx_card_directions_card_id ON card_directions(card_id);
 CREATE INDEX idx_schedule_state_due ON schedule_state(fsrs_due_at);
 CREATE INDEX idx_reviews_card_direction_id ON reviews(card_direction_id);
-
-COMMIT;
 
 PRAGMA foreign_keys = ON;
