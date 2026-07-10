@@ -1003,8 +1003,8 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
     final front = _frontValue;
     final back = _backValue;
     final hint = _hintController.text.trim();
-    if (front.isEmpty || back.isEmpty) {
-      setState(() => _error = 'Polish and English are required.');
+    if (back.isEmpty) {
+      setState(() => _error = 'English is required.');
       return;
     }
     if (_hasDuplicates) {
@@ -1018,12 +1018,20 @@ class _AddCardModalSheetState extends State<_AddCardModalSheet> {
     });
 
     try {
-      await widget.api.createCard(
-        front: front,
-        back: back,
-        cardType: _cardType,
-        hint: hint.isEmpty ? null : hint,
-      );
+      if (front.isEmpty) {
+        await widget.api.createCardFromEnglish(
+          english: back,
+          cardType: _cardType,
+          hint: hint.isEmpty ? null : hint,
+        );
+      } else {
+        await widget.api.createCard(
+          front: front,
+          back: back,
+          cardType: _cardType,
+          hint: hint.isEmpty ? null : hint,
+        );
+      }
       if (!mounted) {
         return;
       }

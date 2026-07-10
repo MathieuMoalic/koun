@@ -381,6 +381,24 @@ class ApiClient {
     }
   }
 
+  Future<void> createCardFromEnglish({
+    required String english,
+    required CardType cardType,
+    String? hint,
+  }) async {
+    final response = await _authedPost('/cards/from-english', {
+      'english': english,
+      'hint': hint,
+      'card_type': cardType.name,
+    });
+    if (response.statusCode == 401) {
+      throw UnauthorizedException();
+    }
+    if (response.statusCode != 200) {
+      throw const ApiException('Failed to create card from English');
+    }
+  }
+
   Future<void> updateCard({
     required int id,
     required String front,

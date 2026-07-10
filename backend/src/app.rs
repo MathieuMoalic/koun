@@ -55,6 +55,7 @@ pub fn build_app(state: AppState) -> Router {
 
     let protected_routes = Router::new()
         .route("/cards", get(cards::list_cards).post(cards::create_card))
+        .route("/cards/from-english", post(cards::create_card_from_english))
         .route("/cards/{id}/audio", get(cards::get_card_audio))
         .route(
             "/cards/{id}",

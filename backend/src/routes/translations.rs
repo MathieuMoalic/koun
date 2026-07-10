@@ -5,7 +5,7 @@ use crate::error::AppResult;
 use crate::llm::LlmClient;
 use crate::models::AppState;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum TranslationDirection {
     PlToEn,
@@ -40,11 +40,12 @@ pub struct TranslateTextResp {
     pub polish_perfective: Option<String>,
 }
 
-pub async fn translate_text(
-    State(state): State<AppState>,
-    Json(req): Json<TranslateTextReq>,
-) -> AppResult<Json<TranslateTextResp>> {
-    let text = req.text.trim();
+pub async fn translate_text_payload(
+    state: &AppState,
+    text: &str,
+    direction: TranslationDirection,
+    card_type: Option<&str>,
+) -> AppResult<TranslateTextResp> {
     if text.is_empty() {
         return Err(StatusCode::BAD_REQUEST.into());
     }
@@ -54,23 +55,14 @@ pub async fn translate_text(
         return Err(StatusCode::BAD_REQUEST.into());
     };
 
-    let direction_label = match req.direction {
+    let direction_label = match direction {
         TranslationDirection::PlToEn => "Polish to English",
         TranslationDirection::EnToPl => "English to Polish",
     };
 
-    let is_noun = req
-        .card_type
-        .as_deref()
-        .is_some_and(|card_type| card_type.eq_ignore_ascii_case("noun"));
-    let is_adjective = req
-        .card_type
-        .as_deref()
-        .is_some_and(|card_type| card_type.eq_ignore_ascii_case("adjective"));
-    let is_verb = req
-        .card_type
-        .as_deref()
-        .is_some_and(|card_type| card_type.eq_ignore_ascii_case("verb"));
+    let is_noun = card_type.is_some_and(|value| value.eq_ignore_ascii_case("noun"));
+    let is_adjective = card_type.is_some_and(|value| value.eq_ignore_ascii_case("adjective"));
+    let is_verb = card_type.is_some_and(|value| value.eq_ignore_ascii_case("verb"));
 
     let (system, user, max_tokens) = if is_noun {
         (
@@ -122,7 +114,7 @@ pub async fn translate_text(
         .trim()
         .to_string();
 
-    Ok(Json(TranslateTextResp {
+    Ok(TranslateTextResp {
         translation,
         polish_singular: response
             .get("polish_singular")
@@ -164,5 +156,15 @@ pub async fn translate_text(
             .and_then(|value| value.as_str())
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
-    }))
+    })
+}
+
+pub async fn translate_text(
+    State(state): State<AppState>,
+    Json(req): Json<TranslateTextReq>,
+) -> AppResult<Json<TranslateTextResp>> {
+    let text = req.text.trim();
+    let response =
+        translate_text_payload(&state, text, req.direction, req.card_type.as_deref()).await?;
+    Ok(Json(response))
 }
