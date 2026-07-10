@@ -236,7 +236,7 @@ def commit_and_tag(version: str) -> None:
     tag = f"v{version}"
 
     run("git", "add", str(CARGO_TOML), str(CARGO_LOCK), str(PUBSPEC), str(FLAKE))
-    run("git", "diff", "--cached")
+    run("git", "--no-pager", "diff", "--cached", "--stat")
     run("git", "commit", "-m", f"Release {tag}")
     run("git", "tag", "-a", tag, "-m", f"Release {tag}")
 

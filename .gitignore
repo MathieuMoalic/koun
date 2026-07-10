@@ -13,3 +13,4 @@
 /backend/koun.sqlite-wal
 /backend/card_audio
 /release/artifacts
+/flutter/android/local.properties
