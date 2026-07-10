@@ -14,3 +14,6 @@
 /backend/card_audio
 /release/artifacts
 /flutter/android/local.properties
+backend/web_build/
+flutter/build/
+flutter/android/local.properties

@@ -268,7 +268,7 @@ def release_command(bump_type: str) -> None:
 
     update_version_files(old, new)
     cargo_check()
-
+    build_flutter_web()
     backend_artifact = build_backend(new)
     nix_hash = nix_hash_file(backend_artifact)
 
@@ -297,6 +297,19 @@ def release_command(bump_type: str) -> None:
 
     print()
     print(f"✓ Released {tag}")
+
+
+def build_flutter_web() -> None:
+    web_build = BACKEND / "web_build"
+    flutter_build_web = FLUTTER / "build" / "web"
+
+    run("flutter", "pub", "get", cwd=FLUTTER)
+    run("flutter", "build", "web", "--release", cwd=FLUTTER)
+
+    if web_build.exists():
+        shutil.rmtree(web_build)
+
+    shutil.copytree(flutter_build_web, web_build)
 
 
 def push_release_command(tag: str) -> None:
