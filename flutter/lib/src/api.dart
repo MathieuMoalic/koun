@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -87,27 +88,62 @@ class ApiClient {
   static const _serverUrlKey = 'server_url';
   static const _reviewQueueKey = 'review_queue';
 
+  String _normalizeBaseUrl(String rawUrl) {
+    var normalized = rawUrl.trim();
+    if (normalized.isEmpty) {
+      throw const ApiException('Server URL cannot be empty');
+    }
+
+    if (!normalized.contains('://')) {
+      final isLocal =
+          normalized.startsWith('localhost') ||
+          normalized.startsWith('127.0.0.1') ||
+          normalized.startsWith('0.0.0.0');
+      normalized = '${isLocal ? 'http' : 'https'}://$normalized';
+    }
+
+    final parsed = Uri.tryParse(normalized);
+    if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) {
+      throw const ApiException('Invalid server URL');
+    }
+
+    return parsed
+        .replace(path: '', queryParameters: null, fragment: null)
+        .toString()
+        .replaceFirst(RegExp(r'/$'), '');
+  }
+
+  String _defaultBaseUrl() {
+    if (kIsWeb) {
+      return Uri.base.origin;
+    }
+
+    const bool isReleaseMode = bool.fromEnvironment('dart.vm.release');
+    const String releaseBaseUrl = 'https://koun.matmoa.eu';
+    return isReleaseMode ? releaseBaseUrl : 'http://localhost:8080';
+  }
+
   Future<String> _baseUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUrl = prefs.getString(_serverUrlKey);
-    
-    // Return saved URL if it exists and is not empty
+
     if (savedUrl != null && savedUrl.isNotEmpty) {
-      return savedUrl;
+      try {
+        return _normalizeBaseUrl(savedUrl);
+      } on ApiException {
+        await prefs.remove(_serverUrlKey);
+      }
     }
-    
-    // Check if we should use the release URL
-    const bool isReleaseMode = bool.fromEnvironment('dart.vm.release');
-    const String releaseBaseUrl = 'https://koun.matmoa.eu';
-    
-    return isReleaseMode ? releaseBaseUrl : 'http://localhost:8080';
+
+    return _defaultBaseUrl();
   }
 
   Future<String> baseUrl() => _baseUrl();
 
   Future<void> setServerUrl(String url) async {
+    final normalizedUrl = _normalizeBaseUrl(url);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_serverUrlKey, url);
+    await prefs.setString(_serverUrlKey, normalizedUrl);
   }
 
   Future<void> clearAuth() async {

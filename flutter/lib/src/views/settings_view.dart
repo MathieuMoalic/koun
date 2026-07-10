@@ -184,11 +184,16 @@ class _SettingsViewState extends State<SettingsView> {
       ),
     );
     if (url != null && url.isNotEmpty) {
-      await widget.api.setServerUrl(url);
-      setState(() {
-        _serverUrl = url;
-        _message = 'Server URL updated';
-      });
+      try {
+        await widget.api.setServerUrl(url);
+        final normalizedUrl = await widget.api.baseUrl();
+        setState(() {
+          _serverUrl = normalizedUrl;
+          _message = 'Server URL updated';
+        });
+      } on ApiException catch (err) {
+        setState(() => _message = err.message);
+      }
     }
   }
 

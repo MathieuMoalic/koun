@@ -16,6 +16,19 @@ class _LoginViewState extends State<LoginView> {
   final TextEditingController _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
+  String? _serverUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServerUrl();
+  }
+
+  Future<void> _loadServerUrl() async {
+    final url = await _api.baseUrl();
+    if (!mounted) return;
+    setState(() => _serverUrl = url);
+  }
 
   Future<void> _login() async {
     setState(() {
@@ -33,7 +46,7 @@ class _LoginViewState extends State<LoginView> {
   }
 
   Future<void> _editServerUrl() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: _serverUrl ?? '');
     final url = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -55,7 +68,18 @@ class _LoginViewState extends State<LoginView> {
       ),
     );
     if (url != null && url.isNotEmpty) {
-      await _api.setServerUrl(url);
+      try {
+        await _api.setServerUrl(url);
+        final normalizedUrl = await _api.baseUrl();
+        if (!mounted) return;
+        setState(() {
+          _serverUrl = normalizedUrl;
+          _error = null;
+        });
+      } on ApiException catch (err) {
+        if (!mounted) return;
+        setState(() => _error = err.message);
+      }
     }
   }
 
@@ -100,6 +124,11 @@ class _LoginViewState extends State<LoginView> {
                   onPressed: _editServerUrl,
                   child: const Text('Server URL'),
                 ),
+                if (_serverUrl != null)
+                  Text(
+                    _serverUrl!,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
               ],
             ),
           ),
