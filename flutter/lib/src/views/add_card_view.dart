@@ -502,7 +502,7 @@ class _AddCardViewState extends State<AddCardView> {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        card.back,
+                                        card.cardType.formatEnglish(card.back),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -1445,7 +1445,7 @@ class _DuplicateSection extends StatelessWidget {
         const SizedBox(height: 6),
         for (final card in cards)
           Text(
-            '• ${card.front} → ${card.back}',
+            '• ${card.front} → ${card.cardType.formatEnglish(card.back)}',
             style: TextStyle(color: theme.colorScheme.onErrorContainer),
           ),
       ],

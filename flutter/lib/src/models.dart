@@ -27,6 +27,14 @@ extension CardTypeX on CardType {
         return CardType.noun;
     }
   }
+
+  String formatEnglish(String value) {
+    final trimmed = value.trim();
+    if (this == CardType.verb && trimmed.isNotEmpty) {
+      return trimmed.startsWith('to ') ? trimmed : 'to $trimmed';
+    }
+    return trimmed;
+  }
 }
 
 extension TranslationDirectionX on TranslationDirection {
