@@ -17,6 +17,7 @@ class LearnView extends StatefulWidget {
 class _LearnViewState extends State<LearnView> {
   final CardAudioPlayer _audioPlayer = createCardAudioPlayer();
   NextReviewResponse? _response;
+  FsrsSettings? _fsrsSettings;
   bool _loading = true;
   bool _showBack = false;
   String? _error;
@@ -26,6 +27,20 @@ class _LearnViewState extends State<LearnView> {
   void initState() {
     super.initState();
     _loadNext();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await widget.api.getFsrsSettings();
+      if (mounted) {
+        setState(() {
+          _fsrsSettings = settings;
+        });
+      }
+    } catch (e) {
+      print('Failed to load FSRS settings: $e');
+    }
   }
 
   Future<void> _loadNext() async {
@@ -96,6 +111,51 @@ class _LearnViewState extends State<LearnView> {
     }
   }
 
+  Widget _buildProgressIndicator({
+    required BuildContext context,
+    required int current,
+    required int total,
+    required String label,
+    required Color color,
+  }) {
+    final percentage = total > 0 ? current.toDouble() / total : 0.0;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              '$current / $total',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: percentage.clamp(0.0, 1.0),
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 8,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -109,19 +169,70 @@ class _LearnViewState extends State<LearnView> {
     final next = _response?.next;
     if (next == null) {
       return Center(
-        child: Text(
-          'No cards due. New learned: ${_response?.newCardsLearned ?? 0}, Old reviewed: ${_response?.oldCardsReviewed ?? 0}',
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'No cards due',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 24),
+            _buildProgressIndicator(
+              context: context,
+              current: _response?.newCardsLearned ?? 0,
+              total: _fsrsSettings?.newCardsPerDay ?? 50,
+              label: 'New learned',
+              color: Colors.blue,
+            ),
+            const SizedBox(height: 12),
+            _buildProgressIndicator(
+              context: context,
+              current: _response?.oldCardsReviewed ?? 0,
+              total: _fsrsSettings?.oldCardsPerDay ?? 200,
+              label: 'Old reviewed',
+              color: Colors.green,
+            ),
+          ],
         ),
+      );
+    }
+
+    Widget _buildDailyProgressSection() {
+      if (_fsrsSettings == null) {
+        return const SizedBox.shrink();
+      }
+
+      return Row(
+        children: [
+          Expanded(
+            child: _buildProgressIndicator(
+              context: context,
+              current: _response?.newCardsLearned ?? 0,
+              total: _fsrsSettings!.newCardsPerDay,
+              label: 'New learned',
+              color: Colors.blue,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildProgressIndicator(
+              context: context,
+              current: _response?.oldCardsReviewed ?? 0,
+              total: _fsrsSettings!.oldCardsPerDay,
+              label: 'Old reviewed',
+              color: Colors.green,
+            ),
+          ),
+        ],
       );
     }
 
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Learned today: ${_response?.newCardsLearned ?? 0}'),
-          const SizedBox(height: 8),
-          Text('Reviewed today: ${_response?.oldCardsReviewed ?? 0}'),
+          _buildDailyProgressSection(),
           const SizedBox(height: 16),
           Expanded(
             child: GestureDetector(
