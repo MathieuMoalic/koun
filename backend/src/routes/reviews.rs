@@ -36,7 +36,7 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
     .await?;
 
 let daily_totals = sqlx::query_scalar::<_, i64>(
-    "SELECT COALESCE(SUM(new_cards_learned), 0) FROM schedule_state
+    "SELECT COALESCE(SUM(schedule_state.new_cards_learned), 0) FROM schedule_state
      JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
      JOIN cards ON cards.id = card_directions.card_id
      WHERE cards.suspended = 0
@@ -48,7 +48,7 @@ let daily_totals = sqlx::query_scalar::<_, i64>(
 .await?;
 
 let old_cards_reviewed = sqlx::query_scalar::<_, i64>(
-    "SELECT COALESCE(SUM(old_cards_reviewed), 0) FROM schedule_state
+    "SELECT COALESCE(SUM(schedule_state.old_cards_reviewed), 0) FROM schedule_state
      JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
      JOIN cards ON cards.id = card_directions.card_id
      WHERE cards.suspended = 0
