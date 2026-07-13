@@ -1,6 +1,6 @@
 use axum::extract::DefaultBodyLimit;
 use axum::middleware::{from_fn, from_fn_with_state};
-use axum::routing::{get, patch, post};
+use axum::routing::{get, put, post};
 use axum::{Json, Router};
 use serde::Serialize;
 use tower::ServiceBuilder;
@@ -59,7 +59,7 @@ pub fn build_app(state: AppState) -> Router {
         .route("/cards/{id}/audio", get(cards::get_card_audio))
         .route(
             "/cards/{id}",
-            patch(cards::update_card).delete(cards::delete_card),
+            put(cards::update_card).delete(cards::delete_card),
         )
         .route("/reviews/next", get(reviews::next_review))
         .route("/reviews/sync", post(reviews::sync_reviews))
