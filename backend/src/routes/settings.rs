@@ -10,6 +10,8 @@ const DEFAULT_RETENTION: f64 = 0.9;
 const DEFAULT_LEARNING_STEP_1_MINUTES: i64 = 1;
 const DEFAULT_LEARNING_STEP_2_MINUTES: i64 = 10;
 const DEFAULT_RELEARNING_STEP_MINUTES: i64 = 10;
+const DEFAULT_NEW_CARDS_PER_DAY: i64 = 50;
+const DEFAULT_OLD_CARDS_PER_DAY: i64 = 200;
 
 #[derive(sqlx::FromRow)]
 struct FsrsSettingsRow {
@@ -17,6 +19,8 @@ struct FsrsSettingsRow {
     learning_step_1_minutes: i64,
     learning_step_2_minutes: i64,
     relearning_step_minutes: i64,
+    new_cards_per_day: i64,
+    old_cards_per_day: i64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -25,6 +29,8 @@ pub struct FsrsSettingsPayload {
     learning_step_1_minutes: i64,
     learning_step_2_minutes: i64,
     relearning_step_minutes: i64,
+    new_cards_per_day: i64,
+    old_cards_per_day: i64,
 }
 
 pub async fn get_fsrs_settings(State(state): State<AppState>) -> AppResult<Json<FsrsSettings>> {
@@ -34,6 +40,8 @@ pub async fn get_fsrs_settings(State(state): State<AppState>) -> AppResult<Json<
         learning_step_1_minutes: row.learning_step_1_minutes,
         learning_step_2_minutes: row.learning_step_2_minutes,
         relearning_step_minutes: row.relearning_step_minutes,
+        new_cards_per_day: row.new_cards_per_day,
+        old_cards_per_day: row.old_cards_per_day,
     }))
 }
 
@@ -45,19 +53,25 @@ pub async fn set_fsrs_settings(
     validate_minutes(payload.learning_step_1_minutes, "learning_step_1_minutes")?;
     validate_minutes(payload.learning_step_2_minutes, "learning_step_2_minutes")?;
     validate_minutes(payload.relearning_step_minutes, "relearning_step_minutes")?;
+    validate_daily_targets(payload.new_cards_per_day, "new_cards_per_day")?;
+    validate_daily_targets(payload.old_cards_per_day, "old_cards_per_day")?;
 
     sqlx::query(
-        "INSERT INTO fsrs_settings (id, desired_retention, learning_step_1_minutes, learning_step_2_minutes, relearning_step_minutes)
-         VALUES (1, ?, ?, ?, ?)
+        "INSERT INTO fsrs_settings (id, desired_retention, learning_step_1_minutes, learning_step_2_minutes, relearning_step_minutes, new_cards_per_day, old_cards_per_day)
+         VALUES (1, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET desired_retention = excluded.desired_retention,
              learning_step_1_minutes = excluded.learning_step_1_minutes,
              learning_step_2_minutes = excluded.learning_step_2_minutes,
-             relearning_step_minutes = excluded.relearning_step_minutes",
+             relearning_step_minutes = excluded.relearning_step_minutes,
+             new_cards_per_day = excluded.new_cards_per_day,
+             old_cards_per_day = excluded.old_cards_per_day",
     )
     .bind(payload.desired_retention)
     .bind(payload.learning_step_1_minutes)
     .bind(payload.learning_step_2_minutes)
     .bind(payload.relearning_step_minutes)
+    .bind(payload.new_cards_per_day)
+    .bind(payload.old_cards_per_day)
     .execute(&state.pool)
     .await?;
 
@@ -66,6 +80,8 @@ pub async fn set_fsrs_settings(
         learning_step_1_minutes: payload.learning_step_1_minutes,
         learning_step_2_minutes: payload.learning_step_2_minutes,
         relearning_step_minutes: payload.relearning_step_minutes,
+        new_cards_per_day: payload.new_cards_per_day,
+        old_cards_per_day: payload.old_cards_per_day,
     }))
 }
 
@@ -90,7 +106,7 @@ pub async fn get_fsrs_config(pool: &SqlitePool) -> AppResult<FsrsConfig> {
 
 async fn fetch_settings(pool: &SqlitePool) -> AppResult<FsrsSettingsRow> {
     let row = sqlx::query_as::<_, FsrsSettingsRow>(
-        "SELECT desired_retention, learning_step_1_minutes, learning_step_2_minutes, relearning_step_minutes
+        "SELECT desired_retention, learning_step_1_minutes, learning_step_2_minutes, relearning_step_minutes, new_cards_per_day, old_cards_per_day
          FROM fsrs_settings WHERE id = 1",
     )
     .fetch_optional(pool)
@@ -102,13 +118,15 @@ async fn fetch_settings(pool: &SqlitePool) -> AppResult<FsrsSettingsRow> {
 
     let defaults = default_settings_row();
     sqlx::query(
-        "INSERT INTO fsrs_settings (id, desired_retention, learning_step_1_minutes, learning_step_2_minutes, relearning_step_minutes)
-         VALUES (1, ?, ?, ?, ?)",
+        "INSERT INTO fsrs_settings (id, desired_retention, learning_step_1_minutes, learning_step_2_minutes, relearning_step_minutes, new_cards_per_day, old_cards_per_day)
+         VALUES (1, ?, ?, ?, ?, ?, ?)",
     )
     .bind(defaults.desired_retention)
     .bind(defaults.learning_step_1_minutes)
     .bind(defaults.learning_step_2_minutes)
     .bind(defaults.relearning_step_minutes)
+    .bind(defaults.new_cards_per_day)
+    .bind(defaults.old_cards_per_day)
     .execute(pool)
     .await?;
 
@@ -149,5 +167,15 @@ fn default_settings_row() -> FsrsSettingsRow {
         learning_step_1_minutes: DEFAULT_LEARNING_STEP_1_MINUTES,
         learning_step_2_minutes: DEFAULT_LEARNING_STEP_2_MINUTES,
         relearning_step_minutes: DEFAULT_RELEARNING_STEP_MINUTES,
+        new_cards_per_day: DEFAULT_NEW_CARDS_PER_DAY,
+        old_cards_per_day: DEFAULT_OLD_CARDS_PER_DAY,
     }
+}
+
+fn validate_daily_targets(count: i64, field: &str) -> AppResult<()> {
+    if count <= 0 {
+        tracing::warn!(field = %field, count = %count, "Invalid daily target");
+        return Err(StatusCode::BAD_REQUEST.into());
+    }
+    Ok(())
 }

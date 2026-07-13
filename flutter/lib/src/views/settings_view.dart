@@ -24,30 +24,38 @@ class _SettingsViewState extends State<SettingsView> {
   final TextEditingController _learningStep1Controller = TextEditingController();
   final TextEditingController _learningStep2Controller = TextEditingController();
   final TextEditingController _relearningStepController = TextEditingController();
+  final TextEditingController _newCardsPerDayController = TextEditingController();
+  final TextEditingController _oldCardsPerDayController = TextEditingController();
 
   static const double _defaultRetention = 0.9;
   static const int _defaultLearningStep1 = 1;
   static const int _defaultLearningStep2 = 10;
   static const int _defaultRelearningStep = 10;
+  static const int _defaultNewCardsPerDay = 50;
+  static const int _defaultOldCardsPerDay = 200;
 
-  @override
-  void initState() {
-    super.initState();
-    _retentionController.text = _defaultRetention.toStringAsFixed(2);
-    _learningStep1Controller.text = _defaultLearningStep1.toString();
-    _learningStep2Controller.text = _defaultLearningStep2.toString();
-    _relearningStepController.text = _defaultRelearningStep.toString();
-    _load();
-  }
+@override
+    void initState() {
+      super.initState();
+      _retentionController.text = _defaultRetention.toStringAsFixed(2);
+      _learningStep1Controller.text = _defaultLearningStep1.toString();
+      _learningStep2Controller.text = _defaultLearningStep2.toString();
+      _relearningStepController.text = _defaultRelearningStep.toString();
+      _newCardsPerDayController.text = _defaultNewCardsPerDay.toString();
+      _oldCardsPerDayController.text = _defaultOldCardsPerDay.toString();
+      _load();
+    }
 
-  @override
-  void dispose() {
-    _retentionController.dispose();
-    _learningStep1Controller.dispose();
-    _learningStep2Controller.dispose();
-    _relearningStepController.dispose();
-    super.dispose();
-  }
+@override
+    void dispose() {
+      _retentionController.dispose();
+      _learningStep1Controller.dispose();
+      _learningStep2Controller.dispose();
+      _relearningStepController.dispose();
+      _newCardsPerDayController.dispose();
+      _oldCardsPerDayController.dispose();
+      super.dispose();
+    }
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -63,6 +71,8 @@ class _SettingsViewState extends State<SettingsView> {
         _learningStep1Controller.text = settings.learningStep1Minutes.toString();
         _learningStep2Controller.text = settings.learningStep2Minutes.toString();
         _relearningStepController.text = settings.relearningStepMinutes.toString();
+        _newCardsPerDayController.text = settings.newCardsPerDay.toString();
+        _oldCardsPerDayController.text = settings.oldCardsPerDay.toString();
         _serverVersion = version.version;
         _serverUrl = serverUrl;
         _loading = false;
@@ -87,6 +97,8 @@ class _SettingsViewState extends State<SettingsView> {
     final step1 = int.tryParse(_learningStep1Controller.text.trim());
     final step2 = int.tryParse(_learningStep2Controller.text.trim());
     final relearningStep = int.tryParse(_relearningStepController.text.trim());
+    final newCardsPerDay = int.tryParse(_newCardsPerDayController.text.trim());
+    final oldCardsPerDay = int.tryParse(_oldCardsPerDayController.text.trim());
 
     if (retention == null) {
       setState(() => _message = 'Invalid desired retention.');
@@ -104,6 +116,14 @@ class _SettingsViewState extends State<SettingsView> {
       setState(() => _message = 'Relearning step must be a positive number.');
       return;
     }
+    if (newCardsPerDay == null || newCardsPerDay <= 0) {
+      setState(() => _message = 'New cards per day must be a positive number.');
+      return;
+    }
+    if (oldCardsPerDay == null || oldCardsPerDay <= 0) {
+      setState(() => _message = 'Old cards per day must be a positive number.');
+      return;
+    }
 
     try {
       await widget.api.setFsrsSettings(
@@ -112,6 +132,8 @@ class _SettingsViewState extends State<SettingsView> {
           learningStep1Minutes: step1,
           learningStep2Minutes: step2,
           relearningStepMinutes: relearningStep,
+          newCardsPerDay: newCardsPerDay,
+          oldCardsPerDay: oldCardsPerDay,
         ),
       );
       setState(() => _message = 'FSRS settings saved');
@@ -244,6 +266,24 @@ class _SettingsViewState extends State<SettingsView> {
           decoration: const InputDecoration(
             labelText: 'Relearning step (minutes)',
             helperText: 'Minutes when you forget a card',
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _newCardsPerDayController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'New cards per day',
+            helperText: 'Daily limit for new cards',
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _oldCardsPerDayController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Old cards per day',
+            helperText: 'Daily limit for reviewed cards',
           ),
         ),
         const SizedBox(height: 12),

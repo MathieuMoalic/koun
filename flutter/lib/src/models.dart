@@ -222,12 +222,16 @@ class FsrsSettings {
   final int learningStep1Minutes;
   final int learningStep2Minutes;
   final int relearningStepMinutes;
+  final int newCardsPerDay;
+  final int oldCardsPerDay;
 
   FsrsSettings({
     required this.desiredRetention,
     required this.learningStep1Minutes,
     required this.learningStep2Minutes,
     required this.relearningStepMinutes,
+    required this.newCardsPerDay,
+    required this.oldCardsPerDay,
   });
 
   factory FsrsSettings.fromJson(Map<String, dynamic> json) {
@@ -236,6 +240,8 @@ class FsrsSettings {
       learningStep1Minutes: json['learning_step_1_minutes'] as int,
       learningStep2Minutes: json['learning_step_2_minutes'] as int,
       relearningStepMinutes: json['relearning_step_minutes'] as int,
+      newCardsPerDay: json['new_cards_per_day'] as int? ?? 50,
+      oldCardsPerDay: json['old_cards_per_day'] as int? ?? 200,
     );
   }
 
@@ -244,6 +250,8 @@ class FsrsSettings {
         'learning_step_1_minutes': learningStep1Minutes,
         'learning_step_2_minutes': learningStep2Minutes,
         'relearning_step_minutes': relearningStepMinutes,
+        'new_cards_per_day': newCardsPerDay,
+        'old_cards_per_day': oldCardsPerDay,
       };
 }
 

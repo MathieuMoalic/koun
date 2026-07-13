@@ -104,6 +104,8 @@ pub struct FsrsSettings {
     pub learning_step_1_minutes: i64,
     pub learning_step_2_minutes: i64,
     pub relearning_step_minutes: i64,
+    pub new_cards_per_day: i64,
+    pub old_cards_per_day: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
