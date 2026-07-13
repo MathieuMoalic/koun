@@ -152,8 +152,15 @@ class ReviewItem {
 class NextReviewResponse {
   final ReviewItem? next;
   final int dueCount;
+  final int newCardsLearned;
+  final int oldCardsReviewed;
 
-  NextReviewResponse({required this.next, required this.dueCount});
+  NextReviewResponse({
+    required this.next,
+    required this.dueCount,
+    required this.newCardsLearned,
+    required this.oldCardsReviewed,
+  });
 
   factory NextReviewResponse.fromJson(Map<String, dynamic> json) {
     final nextJson = json['next'];
@@ -162,6 +169,8 @@ class NextReviewResponse {
           ? null
           : ReviewItem.fromJson(nextJson as Map<String, dynamic>),
       dueCount: json['due_count'] as int,
+      newCardsLearned: json['new_cards_learned'] as int? ?? 0,
+      oldCardsReviewed: json['old_cards_reviewed'] as int? ?? 0,
     );
   }
 }

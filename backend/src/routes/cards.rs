@@ -305,10 +305,11 @@ async fn insert_schedule_state(
         "INSERT INTO schedule_state (
             card_direction_id,
             fsrs_stability, fsrs_difficulty, fsrs_due_at, fsrs_last_review_at,
-            fsrs_learning_step, fsrs_relearning_step, updated_at
-         )
-         VALUES (?, 1.0, ?, ?, 0, 0, 0, ?)
-         ON CONFLICT(card_direction_id) DO NOTHING",
+            fsrs_learning_step, fsrs_relearning_step, updated_at,
+            new_cards_learned, old_cards_reviewed
+          )
+          VALUES (?, 1.0, ?, ?, 0, 0, 0, ?, 0, 0)
+          ON CONFLICT(card_direction_id) DO NOTHING",
     )
     .bind(card_direction_id)
     .bind(initial_difficulty)

@@ -94,6 +94,8 @@ pub struct ScheduleState {
     pub fsrs_learning_step: i64,
     pub fsrs_relearning_step: i64,
     pub updated_at: i64,
+    pub new_cards_learned: i64,
+    pub old_cards_reviewed: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

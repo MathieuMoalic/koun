@@ -16,6 +16,8 @@ const UNLOCK_INTERVAL_SECS: i64 = 3 * 24 * 3600;
 pub struct NextReviewResponse {
     pub next: Option<ReviewItem>,
     pub due_count: i64,
+    pub new_cards_learned: i64,
+    pub old_cards_reviewed: i64,
 }
 
 pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextReviewResponse>> {
@@ -32,6 +34,30 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
     .bind(now)
     .fetch_one(&state.pool)
     .await?;
+
+let daily_totals = sqlx::query_scalar::<_, i64>(
+    "SELECT COALESCE(SUM(new_cards_learned), 0) FROM schedule_state
+     JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
+     JOIN cards ON cards.id = card_directions.card_id
+     WHERE cards.suspended = 0
+       AND card_directions.enabled = 1
+       AND schedule_state.fsrs_due_at <= ?",
+)
+.bind(now)
+.fetch_one(&state.pool)
+.await?;
+
+let old_cards_reviewed = sqlx::query_scalar::<_, i64>(
+    "SELECT COALESCE(SUM(old_cards_reviewed), 0) FROM schedule_state
+     JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
+     JOIN cards ON cards.id = card_directions.card_id
+     WHERE cards.suspended = 0
+       AND card_directions.enabled = 1
+       AND schedule_state.fsrs_due_at <= ?",
+)
+.bind(now)
+.fetch_one(&state.pool)
+.await?;
 
     #[derive(sqlx::FromRow)]
     struct DueRow {
@@ -88,7 +114,12 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
         None => None,
     };
 
-    Ok(Json(NextReviewResponse { next, due_count }))
+    Ok(Json(NextReviewResponse {
+        next,
+        due_count,
+        new_cards_learned: daily_totals,
+        old_cards_reviewed: old_cards_reviewed,
+    }))
 }
 
 pub async fn sync_reviews(
@@ -107,6 +138,7 @@ pub async fn sync_reviews(
         apply_review(&mut schedule, event.rating, reviewed_at, &fsrs_config);
         update_schedule_state(&mut tx, &schedule).await?;
         update_card_timestamp(&mut tx, schedule.card_direction_id, reviewed_at).await?;
+        update_review_counters(&mut tx, schedule.card_direction_id, &schedule).await?;
         insert_review(
             &mut tx,
             schedule.card_direction_id,
@@ -196,6 +228,8 @@ async fn fetch_review_target(
         fsrs_learning_step: i64,
         fsrs_relearning_step: i64,
         updated_at: i64,
+        new_cards_learned: i64,
+        old_cards_reviewed: i64,
     }
 
     let row = sqlx::query_as::<_, ReviewTargetRow>(
@@ -209,10 +243,12 @@ async fn fetch_review_target(
             schedule_state.fsrs_last_review_at,
             schedule_state.fsrs_learning_step,
             schedule_state.fsrs_relearning_step,
-            schedule_state.updated_at
-         FROM schedule_state
-         JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
-         WHERE schedule_state.card_direction_id = ?",
+            schedule_state.updated_at,
+            schedule_state.new_cards_learned,
+            schedule_state.old_cards_reviewed
+          FROM schedule_state
+          JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
+          WHERE schedule_state.card_direction_id = ?",
     )
     .bind(card_direction_id)
     .fetch_optional(&mut **tx)
@@ -231,8 +267,24 @@ async fn fetch_review_target(
             fsrs_learning_step: row.fsrs_learning_step,
             fsrs_relearning_step: row.fsrs_relearning_step,
             updated_at: row.updated_at,
+            new_cards_learned: row.new_cards_learned,
+            old_cards_reviewed: row.old_cards_reviewed,
         },
     })
+}
+
+async fn update_review_counters(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    card_direction_id: i64,
+    schedule: &ScheduleState,
+) -> AppResult<()> {
+    let increment_count = if schedule.fsrs_last_review_at > 0 {
+        "UPDATE schedule_state SET old_cards_reviewed = old_cards_reviewed + 1 WHERE card_direction_id = ?"
+    } else {
+        "UPDATE schedule_state SET new_cards_learned = new_cards_learned + 1, old_cards_reviewed = old_cards_reviewed + 1 WHERE card_direction_id = ?"
+    };
+    sqlx::query(increment_count).bind(card_direction_id).execute(&mut **tx).await?;
+    Ok(())
 }
 
 async fn update_schedule_state(
@@ -247,8 +299,10 @@ async fn update_schedule_state(
             fsrs_last_review_at = ?,
             fsrs_learning_step = ?,
             fsrs_relearning_step = ?,
-            updated_at = ?
-         WHERE card_direction_id = ?",
+            updated_at = ?,
+            new_cards_learned = ?,
+            old_cards_reviewed = ?
+          WHERE card_direction_id = ?",
     )
     .bind(schedule.fsrs_stability)
     .bind(schedule.fsrs_difficulty)
@@ -257,6 +311,8 @@ async fn update_schedule_state(
     .bind(schedule.fsrs_learning_step)
     .bind(schedule.fsrs_relearning_step)
     .bind(schedule.updated_at)
+    .bind(schedule.new_cards_learned)
+    .bind(schedule.old_cards_reviewed)
     .bind(schedule.card_direction_id)
     .execute(&mut **tx)
     .await?;
@@ -336,7 +392,7 @@ async fn maybe_unlock_reverse_direction(
     .fetch_one(&mut **tx)
     .await?;
 
-    sqlx::query(
+sqlx::query(
         "INSERT INTO schedule_state (
             card_direction_id,
             fsrs_stability,
@@ -345,10 +401,12 @@ async fn maybe_unlock_reverse_direction(
             fsrs_last_review_at,
             fsrs_learning_step,
             fsrs_relearning_step,
-            updated_at
-         )
-         VALUES (?, 1.0, 6.0, ?, 0, 0, 0, ?)
-         ON CONFLICT(card_direction_id) DO NOTHING",
+            updated_at,
+            new_cards_learned,
+            old_cards_reviewed
+          )
+          VALUES (?, 1.0, 6.0, ?, 0, 0, 0, ?, 0, 0)
+          ON CONFLICT(card_direction_id) DO NOTHING",
     )
     .bind(en_to_pl_direction_id)
     .bind(reviewed_at)

@@ -110,7 +110,7 @@ class _LearnViewState extends State<LearnView> {
     if (next == null) {
       return Center(
         child: Text(
-          'No cards due. Due count: ${_response?.dueCount ?? 0}',
+          'No cards due. New learned: ${_response?.newCardsLearned ?? 0}, Old reviewed: ${_response?.oldCardsReviewed ?? 0}',
         ),
       );
     }
@@ -119,7 +119,9 @@ class _LearnViewState extends State<LearnView> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          Text('Due: ${_response?.dueCount ?? 0}'),
+          Text('Learned today: ${_response?.newCardsLearned ?? 0}'),
+          const SizedBox(height: 8),
+          Text('Reviewed today: ${_response?.oldCardsReviewed ?? 0}'),
           const SizedBox(height: 16),
           Expanded(
             child: GestureDetector(
