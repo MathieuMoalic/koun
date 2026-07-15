@@ -205,6 +205,11 @@ class _AddCardViewState extends State<AddCardView> {
 
   Future<void> _playAudio(CardModel card) async {
     try {
+      final audioEnabled = await widget.api.isAudioEnabled();
+      if (!audioEnabled) {
+        setState(() => _message = 'Audio is disabled in settings');
+        return;
+      }
       final bytes = await widget.api.downloadCardAudio(card.id);
       await _audioPlayer.playBytes(bytes, cardId: card.id);
     } on UnauthorizedException {
@@ -1498,8 +1503,7 @@ class _EditCardDialogState extends State<_EditCardDialog> {
     final nounSplit = _splitNounFront(widget.card.front);
     _nounPolishSingularController =
         TextEditingController(text: nounSplit.singular);
-    _nounPolishPluralController =
-        TextEditingController(text: nounSplit.plural);
+    _nounPolishPluralController = TextEditingController(text: nounSplit.plural);
     _nounEnglishController = TextEditingController(text: widget.card.back);
     final adjectiveSplit = _splitAdjectiveFront(widget.card.front);
     _adjectivePolishMasculineController =
@@ -1561,7 +1565,8 @@ class _EditCardDialogState extends State<_EditCardDialog> {
               : _isVerb
                   ? _verbSourceText(
                       direction: direction,
-                      polishImperfective: _verbPolishImperfectiveController.text,
+                      polishImperfective:
+                          _verbPolishImperfectiveController.text,
                       polishPerfective: _verbPolishPerfectiveController.text,
                       english: _verbEnglishController.text,
                     )
@@ -1584,7 +1589,8 @@ class _EditCardDialogState extends State<_EditCardDialog> {
               : _isVerb
                   ? _verbSourceText(
                       direction: direction,
-                      polishImperfective: _verbPolishImperfectiveController.text,
+                      polishImperfective:
+                          _verbPolishImperfectiveController.text,
                       polishPerfective: _verbPolishPerfectiveController.text,
                       english: _verbEnglishController.text,
                     )

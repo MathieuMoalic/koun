@@ -20,12 +20,18 @@ class _SettingsViewState extends State<SettingsView> {
   final String _clientVersion = '0.1.0';
   String? _serverVersion;
   String? _serverUrl;
+  bool _audioEnabled = true;
   final TextEditingController _retentionController = TextEditingController();
-  final TextEditingController _learningStep1Controller = TextEditingController();
-  final TextEditingController _learningStep2Controller = TextEditingController();
-  final TextEditingController _relearningStepController = TextEditingController();
-  final TextEditingController _newCardsPerDayController = TextEditingController();
-  final TextEditingController _oldCardsPerDayController = TextEditingController();
+  final TextEditingController _learningStep1Controller =
+      TextEditingController();
+  final TextEditingController _learningStep2Controller =
+      TextEditingController();
+  final TextEditingController _relearningStepController =
+      TextEditingController();
+  final TextEditingController _newCardsPerDayController =
+      TextEditingController();
+  final TextEditingController _oldCardsPerDayController =
+      TextEditingController();
 
   static const double _defaultRetention = 0.9;
   static const int _defaultLearningStep1 = 1;
@@ -34,31 +40,36 @@ class _SettingsViewState extends State<SettingsView> {
   static const int _defaultNewCardsPerDay = 50;
   static const int _defaultOldCardsPerDay = 200;
 
-@override
-    void initState() {
-      super.initState();
-      _retentionController.text = _defaultRetention.toStringAsFixed(2);
-      _learningStep1Controller.text = _defaultLearningStep1.toString();
-      _learningStep2Controller.text = _defaultLearningStep2.toString();
-      _relearningStepController.text = _defaultRelearningStep.toString();
-      _newCardsPerDayController.text = _defaultNewCardsPerDay.toString();
-      _oldCardsPerDayController.text = _defaultOldCardsPerDay.toString();
-      _load();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _retentionController.text = _defaultRetention.toStringAsFixed(2);
+    _learningStep1Controller.text = _defaultLearningStep1.toString();
+    _learningStep2Controller.text = _defaultLearningStep2.toString();
+    _relearningStepController.text = _defaultRelearningStep.toString();
+    _newCardsPerDayController.text = _defaultNewCardsPerDay.toString();
+    _oldCardsPerDayController.text = _defaultOldCardsPerDay.toString();
+    _load();
+  }
 
-@override
-    void dispose() {
-      _retentionController.dispose();
-      _learningStep1Controller.dispose();
-      _learningStep2Controller.dispose();
-      _relearningStepController.dispose();
-      _newCardsPerDayController.dispose();
-      _oldCardsPerDayController.dispose();
-      super.dispose();
-    }
+  @override
+  void dispose() {
+    _retentionController.dispose();
+    _learningStep1Controller.dispose();
+    _learningStep2Controller.dispose();
+    _relearningStepController.dispose();
+    _newCardsPerDayController.dispose();
+    _oldCardsPerDayController.dispose();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    var audioEnabled = true;
+    try {
+      audioEnabled = await widget.api.isAudioEnabled();
+    } catch (_) {}
+
     try {
       final stats = await widget.api.reviewsPerDay();
       final settings = await widget.api.getFsrsSettings();
@@ -68,26 +79,45 @@ class _SettingsViewState extends State<SettingsView> {
         _stats = stats;
         _retentionController.text =
             settings.desiredRetention.toStringAsFixed(2);
-        _learningStep1Controller.text = settings.learningStep1Minutes.toString();
-        _learningStep2Controller.text = settings.learningStep2Minutes.toString();
-        _relearningStepController.text = settings.relearningStepMinutes.toString();
+        _learningStep1Controller.text =
+            settings.learningStep1Minutes.toString();
+        _learningStep2Controller.text =
+            settings.learningStep2Minutes.toString();
+        _relearningStepController.text =
+            settings.relearningStepMinutes.toString();
         _newCardsPerDayController.text = settings.newCardsPerDay.toString();
         _oldCardsPerDayController.text = settings.oldCardsPerDay.toString();
         _serverVersion = version.version;
         _serverUrl = serverUrl;
+        _audioEnabled = audioEnabled;
         _loading = false;
       });
     } on UnauthorizedException {
       setState(() {
         _message = 'Session expired. Please log in again.';
+        _audioEnabled = audioEnabled;
         _loading = false;
       });
       await widget.onUnauthorized?.call();
     } catch (_) {
       setState(() {
         _message = 'Failed to load settings.';
+        _audioEnabled = audioEnabled;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _setAudioEnabled(bool enabled) async {
+    setState(() => _message = null);
+    try {
+      await widget.api.setAudioEnabled(enabled);
+      setState(() {
+        _audioEnabled = enabled;
+        _message = enabled ? 'Audio enabled' : 'Audio disabled';
+      });
+    } catch (_) {
+      setState(() => _message = 'Failed to update audio setting.');
     }
   }
 
@@ -235,7 +265,7 @@ class _SettingsViewState extends State<SettingsView> {
         const SizedBox(height: 12),
         TextField(
           controller: _retentionController,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
             labelText: 'Desired retention (0.90)',
             helperText: 'Typical range: 0.85–0.95',
@@ -290,6 +320,14 @@ class _SettingsViewState extends State<SettingsView> {
         FilledButton(
           onPressed: _saveFsrsSettings,
           child: const Text('Save FSRS settings'),
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Enable audio'),
+          subtitle: const Text('Turn off to disable all pronunciation audio.'),
+          value: _audioEnabled,
+          onChanged: _setAudioEnabled,
         ),
         const SizedBox(height: 24),
         FilledButton.tonal(

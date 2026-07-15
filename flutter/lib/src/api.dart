@@ -87,6 +87,7 @@ class ApiClient {
   static const _refreshTokenKey = 'refresh_token';
   static const _serverUrlKey = 'server_url';
   static const _reviewQueueKey = 'review_queue';
+  static const _audioEnabledKey = 'audio_enabled';
 
   String _normalizeBaseUrl(String rawUrl) {
     var normalized = rawUrl.trim();
@@ -138,6 +139,16 @@ class ApiClient {
   }
 
   Future<String> baseUrl() => _baseUrl();
+
+  Future<bool> isAudioEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_audioEnabledKey) ?? true;
+  }
+
+  Future<void> setAudioEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_audioEnabledKey, enabled);
+  }
 
   Future<void> setServerUrl(String url) async {
     final normalizedUrl = _normalizeBaseUrl(url);

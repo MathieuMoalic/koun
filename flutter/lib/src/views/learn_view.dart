@@ -96,6 +96,12 @@ class _LearnViewState extends State<LearnView> {
         _lastAutoPlayedCardId == reviewItem.cardId) {
       return;
     }
+
+    final audioEnabled = await widget.api.isAudioEnabled();
+    if (!audioEnabled) {
+      return;
+    }
+
     _lastAutoPlayedCardId = reviewItem.cardId;
     try {
       final bytes = await widget.api.downloadCardAudio(reviewItem.cardId);
@@ -238,89 +244,87 @@ class _LearnViewState extends State<LearnView> {
             child: GestureDetector(
               onTap: () => setState(() => _showBack = !_showBack),
               child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Stack(
-                      children: [
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_vert, size: 18),
-                            tooltip: 'Card actions',
-                            onSelected: (value) {
-                              switch (value) {
-                                case 'edit':
-                                  _editCurrentCard(next);
-                                  break;
-                                case 'delete':
-                                  _deleteCurrentCard(next);
-                                  break;
-                              }
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Text('Edit card'),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Delete card'),
-                              ),
-                            ],
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Stack(
+                    children: [
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert, size: 18),
+                          tooltip: 'Card actions',
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'edit':
+                                _editCurrentCard(next);
+                                break;
+                              case 'delete':
+                                _deleteCurrentCard(next);
+                                break;
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit card'),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete card'),
+                            ),
+                          ],
                         ),
-                        Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(999),
+                      ),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  child: Text(
-                                    next.cardType.label,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
+                                child: Text(
+                                  next.cardType.label,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                _showBack
-                                    ? next.direction == ReviewDirection.plToEn
-                                        ? next.cardType
-                                            .formatEnglish(next.answer)
-                                        : next.answer
-                                    : next.direction == ReviewDirection.enToPl
-                                        ? next.cardType
-                                            .formatEnglish(next.prompt)
-                                        : next.prompt,
-                                style: const TextStyle(fontSize: 22),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _showBack
+                                  ? next.direction == ReviewDirection.plToEn
+                                      ? next.cardType.formatEnglish(next.answer)
+                                      : next.answer
+                                  : next.direction == ReviewDirection.enToPl
+                                      ? next.cardType.formatEnglish(next.prompt)
+                                      : next.prompt,
+                              style: const TextStyle(fontSize: 22),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
           ),
           const SizedBox(height: 12),
           if (_showBack)
@@ -406,7 +410,8 @@ class _LearnViewState extends State<LearnView> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete card?'),
-        content: const Text('This will remove the card and its review history.'),
+        content:
+            const Text('This will remove the card and its review history.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -444,7 +449,6 @@ class _LearnViewState extends State<LearnView> {
       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
     );
   }
-
 }
 
 class _LearnCardEditDialog extends StatefulWidget {
@@ -522,7 +526,8 @@ class _LearnCardEditDialogState extends State<_LearnCardEditDialog> {
             TextField(
               controller: _backController,
               decoration: InputDecoration(
-                labelText: _cardType == CardType.verb ? 'English verb' : 'English',
+                labelText:
+                    _cardType == CardType.verb ? 'English verb' : 'English',
               ),
             ),
             const SizedBox(height: 12),
