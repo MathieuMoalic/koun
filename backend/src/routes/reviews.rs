@@ -22,6 +22,8 @@ pub struct NextReviewResponse {
 
 pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextReviewResponse>> {
     let now = now_ts();
+    let day_start = now - (now % 86_400);
+    let day_end = day_start + 86_400;
 
     let due_count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM schedule_state
@@ -35,29 +37,37 @@ pub async fn next_review(State(state): State<AppState>) -> AppResult<Json<NextRe
     .fetch_one(&state.pool)
     .await?;
 
-let daily_totals = sqlx::query_scalar::<_, i64>(
-    "SELECT COALESCE(SUM(schedule_state.new_cards_learned), 0) FROM schedule_state
-     JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
-     JOIN cards ON cards.id = card_directions.card_id
-     WHERE cards.suspended = 0
-       AND card_directions.enabled = 1
-       AND schedule_state.fsrs_due_at <= ?",
-)
-.bind(now)
-.fetch_one(&state.pool)
-.await?;
+    let new_cards_learned = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM (
+            SELECT card_direction_id, MIN(reviewed_at) AS first_reviewed_at
+            FROM reviews
+            GROUP BY card_direction_id
+         ) first_reviews
+         JOIN card_directions ON card_directions.id = first_reviews.card_direction_id
+         JOIN cards ON cards.id = card_directions.card_id
+         WHERE cards.suspended = 0
+           AND card_directions.enabled = 1
+           AND first_reviews.first_reviewed_at >= ?
+           AND first_reviews.first_reviewed_at < ?",
+    )
+    .bind(day_start)
+    .bind(day_end)
+    .fetch_one(&state.pool)
+    .await?;
 
-let old_cards_reviewed = sqlx::query_scalar::<_, i64>(
-    "SELECT COALESCE(SUM(schedule_state.old_cards_reviewed), 0) FROM schedule_state
-     JOIN card_directions ON card_directions.id = schedule_state.card_direction_id
-     JOIN cards ON cards.id = card_directions.card_id
-     WHERE cards.suspended = 0
-       AND card_directions.enabled = 1
-       AND schedule_state.fsrs_due_at <= ?",
-)
-.bind(now)
-.fetch_one(&state.pool)
-.await?;
+    let old_cards_reviewed = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM reviews
+         JOIN card_directions ON card_directions.id = reviews.card_direction_id
+         JOIN cards ON cards.id = card_directions.card_id
+         WHERE cards.suspended = 0
+           AND card_directions.enabled = 1
+           AND reviews.reviewed_at >= ?
+           AND reviews.reviewed_at < ?",
+    )
+    .bind(day_start)
+    .bind(day_end)
+    .fetch_one(&state.pool)
+    .await?;
 
     #[derive(sqlx::FromRow)]
     struct DueRow {
@@ -117,7 +127,7 @@ let old_cards_reviewed = sqlx::query_scalar::<_, i64>(
     Ok(Json(NextReviewResponse {
         next,
         due_count,
-        new_cards_learned: daily_totals,
+        new_cards_learned,
         old_cards_reviewed: old_cards_reviewed,
     }))
 }
@@ -135,10 +145,11 @@ pub async fn sync_reviews(
         let card_direction_id = resolve_card_direction_id(&mut tx, &event).await?;
         let review_target = fetch_review_target(&mut tx, card_direction_id).await?;
         let mut schedule = review_target.schedule;
+        let was_new = schedule.fsrs_last_review_at == 0;
         apply_review(&mut schedule, event.rating, reviewed_at, &fsrs_config);
         update_schedule_state(&mut tx, &schedule).await?;
         update_card_timestamp(&mut tx, schedule.card_direction_id, reviewed_at).await?;
-        update_review_counters(&mut tx, schedule.card_direction_id, &schedule).await?;
+        update_review_counters(&mut tx, schedule.card_direction_id, was_new).await?;
         insert_review(
             &mut tx,
             schedule.card_direction_id,
@@ -276,12 +287,12 @@ async fn fetch_review_target(
 async fn update_review_counters(
     tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     card_direction_id: i64,
-    schedule: &ScheduleState,
+    was_new: bool,
 ) -> AppResult<()> {
-    let increment_count = if schedule.fsrs_last_review_at > 0 {
-        "UPDATE schedule_state SET old_cards_reviewed = old_cards_reviewed + 1 WHERE card_direction_id = ?"
-    } else {
+    let increment_count = if was_new {
         "UPDATE schedule_state SET new_cards_learned = new_cards_learned + 1, old_cards_reviewed = old_cards_reviewed + 1 WHERE card_direction_id = ?"
+    } else {
+        "UPDATE schedule_state SET old_cards_reviewed = old_cards_reviewed + 1 WHERE card_direction_id = ?"
     };
     sqlx::query(increment_count).bind(card_direction_id).execute(&mut **tx).await?;
     Ok(())
